@@ -1,0 +1,5 @@
+[wokwi]
+version = 1
+# flasher_args.json é gerado pelo build do ESP-IDF e leva bootloader, tabela de partições e app.
+firmware = 'build/flasher_args.json'
+elf = 'build/garden-node.elf'

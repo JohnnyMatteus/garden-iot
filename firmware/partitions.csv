@@ -1,0 +1,9 @@
+# Name,    Type, SubType, Offset,  Size
+nvs,       data, nvs,     0x9000,  0x6000
+phy_init,  data, phy,     0xf000,  0x1000
+factory,   app,  factory, 0x10000, 0x180000
+# Certificados do dispositivo (PEM, 3 blobs de 4 KiB: CA, certificado, chave), gravados no
+# provisionamento (M1-05). Nunca ficam no código-fonte nem na imagem do firmware.
+devcert,   data, 0x40,    0x190000, 0x3000
+# Fila de lotes offline (M1-03): 32 setores de 4 KiB, 8 slots de 512 B por setor.
+offbuf,    data, 0x41,    0x193000, 0x20000

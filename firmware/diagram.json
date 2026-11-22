@@ -1,0 +1,30 @@
+{
+  "version": 1,
+  "author": "garden-iot",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": 0, "left": 0, "attrs": {} },
+    { "type": "wokwi-potentiometer", "id": "soil", "top": -120, "left": -140, "attrs": {} },
+    { "type": "wokwi-dht22", "id": "dht", "top": -130, "left": 120, "attrs": {} },
+    { "type": "wokwi-bh1750", "id": "light", "top": 160, "left": 180, "attrs": {} },
+    { "type": "wokwi-slide-switch", "id": "water", "top": 170, "left": -140, "attrs": { "value": "1" } }
+  ],
+  "connections": [
+    [ "esp:TX", "$serialMonitor:RX", "", [] ],
+    [ "esp:RX", "$serialMonitor:TX", "", [] ],
+    [ "soil:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "soil:GND", "esp:GND.1", "black", [ "v0" ] ],
+    [ "soil:SIG", "esp:34", "green", [ "v0" ] ],
+    [ "dht:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "dht:GND", "esp:GND.1", "black", [ "v0" ] ],
+    [ "dht:SDA", "esp:4", "green", [ "v0" ] ],
+    [ "light:VCC", "esp:3V3", "red", [ "v0" ] ],
+    [ "light:GND", "esp:GND.1", "black", [ "v0" ] ],
+    [ "light:SDA", "esp:21", "green", [ "v0" ] ],
+    [ "light:SCL", "esp:22", "purple", [ "v0" ] ],
+    [ "water:1", "esp:GND.1", "black", [ "v0" ] ],
+    [ "water:2", "esp:27", "green", [ "v0" ] ],
+    [ "water:3", "esp:3V3", "red", [ "v0" ] ]
+  ],
+  "dependencies": {}
+}

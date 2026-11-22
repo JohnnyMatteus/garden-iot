@@ -1,0 +1,63 @@
+menu "Garden node"
+
+    config GARDEN_TENANT
+        string "Tenant"
+        default "t1"
+
+    config GARDEN_HORTA
+        string "Horta"
+        default "h1"
+
+    config GARDEN_NODE_ID
+        string "Id do nó"
+        default "no-01"
+
+    config GARDEN_FW_VERSION
+        string "Versão do firmware (semver, vai no payload)"
+        default "1.0.0"
+
+    config GARDEN_WIFI_SSID
+        string "SSID do Wi-Fi"
+        default "garden"
+
+    config GARDEN_WIFI_PASSWORD
+        string "Senha do Wi-Fi (só desenvolvimento; em campo vem do provisionamento)"
+        default ""
+
+    config GARDEN_MQTT_URI
+        string "URI do broker"
+        default "mqtts://emqx.garden.local:8883"
+
+    config GARDEN_ALLOW_INSECURE_MQTT
+        bool "Permitir MQTT sem TLS quando não há certificado (só simulação)"
+        default n
+
+    config GARDEN_CYCLE_SECONDS
+        int "Intervalo entre ciclos (deep sleep)"
+        default 300
+
+    config GARDEN_WDT_TIMEOUT_S
+        int "Timeout do watchdog de tarefa"
+        default 60
+
+    config GARDEN_SOIL_ADC_GPIO
+        int "GPIO do sensor de solo (ADC1)"
+        default 34
+
+    config GARDEN_DHT_GPIO
+        int "GPIO do sensor de temperatura e umidade do ar"
+        default 4
+
+    config GARDEN_WATER_GPIO
+        int "GPIO do sensor de nível de água (1 = há água)"
+        default 27
+
+    config GARDEN_I2C_SDA_GPIO
+        int "GPIO SDA (BH1750)"
+        default 21
+
+    config GARDEN_I2C_SCL_GPIO
+        int "GPIO SCL (BH1750)"
+        default 22
+
+endmenu

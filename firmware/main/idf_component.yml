@@ -1,0 +1,4 @@
+dependencies:
+  idf: ">=5.4"
+  # Leitura do DHT22/AM2301 (temporização crítica): biblioteca em vez de bit-bang próprio.
+  esp-idf-lib/dht: "^1.0.0"
