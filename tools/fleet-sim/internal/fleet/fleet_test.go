@@ -46,7 +46,7 @@ func (l link) Publish(_ context.Context, topic string, payload []byte) error {
 	l.r.msgs = append(l.r.msgs, msg{topic, p.Seq})
 	return nil
 }
-func (l link) Kill() { l.r.mu.Lock(); l.r.killed++; l.r.mu.Unlock() }
+func (l link) Kill()               { l.r.mu.Lock(); l.r.killed++; l.r.mu.Unlock() }
 func (link) Close(context.Context) {}
 
 func run(t *testing.T, cfg fleet.Config, specs []fleet.NodeSpec) *recorder {

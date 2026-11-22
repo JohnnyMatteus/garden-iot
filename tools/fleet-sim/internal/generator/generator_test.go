@@ -29,9 +29,14 @@ func series(t *testing.T, name string, seed uint64, n int) [][]byte {
 	return out
 }
 
+// decode devolve os campos do envelope e, em "k", o valor de cada grandeza do lote.
 func decode(t *testing.T, raw []byte) map[string]any {
 	var m map[string]any
 	require.NoError(t, json.Unmarshal(raw, &m))
+	for _, r := range m["r"].([]any) {
+		s := r.(map[string]any)
+		m[s["k"].(string)] = s["v"]
+	}
 	return m
 }
 
@@ -44,9 +49,10 @@ func TestSequenceGrowsAndFollowsFirmwareFormat(t *testing.T) {
 	for i, raw := range series(t, "sunny", 1, 5) {
 		m := decode(t, raw)
 		assert.EqualValues(t, i+1, m["seq"])
-		assert.Equal(t, "1.0.0", m["fw_version"])
+		assert.Equal(t, "1.0.0", m["fw"])
 		assert.Contains(t, m, "soil_adc")
 		assert.Contains(t, m, "ts")
+		assert.Contains(t, m, "r")
 	}
 }
 

@@ -19,18 +19,20 @@ type Batch struct {
 	Payload []byte
 }
 
+// payload segue contracts/mqtt/README.md (firmware v1); wind_ms e rain_mm são grandezas extras que
+// os consumidores ignoram por serem desconhecidas.
 type payload struct {
-	FwVersion    string   `json:"fw_version"`
-	Seq          uint32   `json:"seq"`
-	Ts           int64    `json:"ts"`
-	Dropped      uint32   `json:"dropped"`
-	SoilADC      int      `json:"soil_adc"`
-	AirTempC     float64  `json:"air_temp_c"`
-	AirRHPct     float64  `json:"air_rh_pct"`
-	Lux          float64  `json:"lux"`
-	WaterLevelOK bool     `json:"water_level_ok"`
-	WindMS       *float64 `json:"wind_ms,omitempty"` // fora do firmware v1; consumidores ignoram campos desconhecidos
-	RainMM       *float64 `json:"rain_mm,omitempty"`
+	Fw      string   `json:"fw"`
+	Seq     uint32   `json:"seq"`
+	Ts      int64    `json:"ts"`
+	Dropped uint32   `json:"dropped"`
+	R       []sample `json:"r"`
+}
+
+type sample struct {
+	ID string  `json:"id"`
+	K  string  `json:"k"`
+	V  float64 `json:"v"`
 }
 
 // Node gera os lotes de um nó; cada nó tem o próprio gerador de números aleatórios.
@@ -76,9 +78,16 @@ func (n *Node) Batch(tick int, dropped uint32) Batch {
 
 	seq := uint32(tick + 1)
 	body, _ := json.Marshal(payload{
-		FwVersion: FirmwareVersion, Seq: seq, Ts: at.Unix(), Dropped: dropped,
-		SoilADC: int(math.Round(soil)), AirTempC: round2(temp), AirRHPct: round2(rh), Lux: round2(lux),
-		WaterLevelOK: true, WindMS: ptr(round2(wind)), RainMM: ptr(round2(rain)),
+		Fw: FirmwareVersion, Seq: seq, Ts: at.Unix(), Dropped: dropped,
+		R: []sample{
+			{"soil-1", "soil_adc", math.Round(soil)},
+			{"air-1", "air_temp_c", round2(temp)},
+			{"air-1", "air_rh_pct", round2(rh)},
+			{"light-1", "light_lux", round2(lux)},
+			{"tank-1", "water_level_ok", 1},
+			{"wind-1", "wind_ms", round2(wind)},
+			{"rain-1", "rain_mm", round2(rain)},
+		},
 	})
 	return Batch{Seq: seq, Payload: body}
 }
@@ -87,4 +96,3 @@ func (n *Node) noise(amp float64) float64 { return (n.rng.Float64()*2 - 1) * amp
 
 func clamp(v, lo, hi float64) float64 { return math.Min(math.Max(v, lo), hi) }
 func round2(v float64) float64        { return math.Round(v*100) / 100 }
-func ptr(v float64) *float64          { return &v }
