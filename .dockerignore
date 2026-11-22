@@ -1,0 +1,7 @@
+.git
+.env
+data
+infra/pki/out
+firmware
+docs
+**/*_test.go

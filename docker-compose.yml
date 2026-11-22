@@ -201,6 +201,70 @@ services:
     mem_limit: 512m
     networks: [garden]
 
+  # Serviços de aplicação (build a partir da raiz do repositório).
+  bridge:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: services/bridge/Dockerfile
+      target: bridge
+    profiles: [core]
+    depends_on:
+      emqx:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      schema-init:
+        condition: service_completed_successfully
+    environment:
+      BRIDGE_MQTT_URL: tls://emqx:8883
+      BRIDGE_MQTT_CLIENT_ID: bridge
+      BRIDGE_TLS_CA: /pki/ca.pem
+      BRIDGE_TLS_CERT: /pki/bridge.pem
+      BRIDGE_TLS_KEY: /pki/bridge.key
+      BRIDGE_KAFKA_BROKERS: kafka:9092
+      BRIDGE_SCHEMA_REGISTRY_URL: http://schema-registry:8081
+    volumes:
+      - ${PKI_OUT_DIR:-./infra/pki/out}:/pki:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9102/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    mem_limit: 128m
+    cap_drop: [ALL]
+    read_only: true
+    networks: [garden]
+
+  persist:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: services/bridge/Dockerfile
+      target: persist
+    profiles: [core]
+    depends_on:
+      timescaledb:
+        condition: service_healthy
+      kafka-init:
+        condition: service_completed_successfully
+      schema-init:
+        condition: service_completed_successfully
+    environment:
+      PERSIST_KAFKA_BROKERS: kafka:9092
+      PERSIST_DATABASE_URL: postgres://svc_telemetry_writer:${TELEMETRY_WRITER_PASSWORD:-dev-only-change-me}@timescaledb:5432/${POSTGRES_DB:-garden}
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9103/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    mem_limit: 128m
+    cap_drop: [ALL]
+    read_only: true
+    networks: [garden]
+
   grafana:
     <<: *hardening
     image: grafana/grafana:11.3.0
