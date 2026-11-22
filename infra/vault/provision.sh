@@ -34,7 +34,8 @@ fi
 mkdir -p "$out"
 umask 077
 openssl ecparam -name prime256v1 -genkey -noout -out "$base.key"
-csr=$(openssl req -new -key "$base.key" -subj "/CN=$cn")
+# O CN contém "/" e o -subj trata "/" como separador de RDN: escapa para manter o CN literal.
+csr=$(openssl req -new -key "$base.key" -subj "/CN=${cn//\//\\/}")
 printf '%s\n' "$csr" | vault_cli write -field=certificate pki/sign/device \
   common_name="$cn" csr=- \
   uri_sans="spiffe://garden-iot/tenant/$tenant/horta/$horta/no/$no" >"$base.pem"

@@ -43,8 +43,10 @@ vault write pki/config/crl expiry=24h auto_rebuild=true auto_rebuild_grace_perio
 
 # Dispositivos: só autenticação de cliente. A chave privada nasce no provisionamento
 # (CSR gerado fora do Vault; ver provision.sh) e nunca é gravada aqui.
+# allowed_uri_sans: o provision.sh pede o SAN spiffe://garden-iot/tenant/<t>/horta/<h>/no/<n>.
 vault write pki/roles/device \
   allow_any_name=true enforce_hostnames=false require_cn=true \
+  allowed_uri_sans="spiffe://garden-iot/tenant/*/horta/*/no/*" \
   server_flag=false client_flag=true key_type=ec key_bits=256 \
   ttl=720h max_ttl=720h
 
