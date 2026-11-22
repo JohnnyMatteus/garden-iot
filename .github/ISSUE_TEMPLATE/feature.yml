@@ -1,0 +1,27 @@
+name: Funcionalidade
+description: Proposta de nova capacidade
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema
+      description: Que dor do cultivo ou da operação isto resolve.
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Proposta
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Critérios de aceite (Gherkin)
+      render: gherkin
+  - type: dropdown
+    id: milestone
+    attributes:
+      label: Marco
+      options: [M1 Telemetria, M2 Streams, M3 Irrigação, M4 Comandos, M5 IA, M6 Produção]

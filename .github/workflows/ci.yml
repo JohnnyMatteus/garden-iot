@@ -1,0 +1,192 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main, "feat/**"]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+env:
+  GO_VERSION: "1.23"
+  BUF_VERSION: "1.50.0"
+
+jobs:
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      firmware: ${{ steps.f.outputs.firmware }}
+      bridge: ${{ steps.f.outputs.bridge }}
+      irrigation: ${{ steps.f.outputs.irrigation }}
+      fleet_sim: ${{ steps.f.outputs.fleet_sim }}
+      contracts: ${{ steps.f.outputs.contracts }}
+      infra: ${{ steps.f.outputs.infra }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: f
+        with:
+          filters: |
+            firmware:
+              - 'firmware/**'
+              - 'contracts/mqtt/**'
+            bridge:
+              - 'services/bridge/**'
+              - 'contracts/**'
+            irrigation:
+              - 'services/irrigation/**'
+              - 'contracts/**'
+            fleet_sim:
+              - 'tools/fleet-sim/**'
+              - 'contracts/**'
+            contracts:
+              - 'contracts/**'
+            infra:
+              - 'infra/**'
+              - 'docker-compose.yml'
+              - 'Makefile'
+              - '.env.example'
+
+  contracts:
+    needs: changes
+    if: needs.changes.outputs.contracts == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: bufbuild/buf-setup-action@v1
+        with:
+          version: ${{ env.BUF_VERSION }}
+          github_token: ${{ github.token }}
+      - name: buf lint
+        run: buf lint
+        working-directory: contracts
+      - name: buf breaking (contra a main)
+        if: github.ref != 'refs/heads/main'
+        run: buf breaking --against '../.git#branch=origin/main,subdir=contracts'
+        working-directory: contracts
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: contracts/go.sum
+      - name: Código gerado está em dia
+        run: |
+          go install google.golang.org/protobuf/cmd/protoc-gen-go@v1.36.5
+          buf generate
+          git diff --exit-code -- gen
+        working-directory: contracts
+      - name: Testes do contrato
+        run: go test ./... -count=1
+        working-directory: contracts
+
+  firmware:
+    needs: changes
+    if: needs.changes.outputs.firmware == 'true' && hashFiles('firmware/CMakeLists.txt') != ''
+    runs-on: ubuntu-latest
+    container: espressif/idf:v5.3.2
+    steps:
+      - uses: actions/checkout@v4
+      - name: Build do firmware (ESP-IDF fixado)
+        run: |
+          . $IDF_PATH/export.sh
+          cd firmware && idf.py build
+
+  bridge:
+    needs: changes
+    if: needs.changes.outputs.bridge == 'true' && hashFiles('services/bridge/go.mod') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/bridge/go.sum
+      - run: go vet ./...
+        working-directory: services/bridge
+      - uses: golangci/golangci-lint-action@v6
+        with:
+          version: v1.62
+          working-directory: services/bridge
+      - run: go test ./... -race -count=1
+        working-directory: services/bridge
+
+  irrigation:
+    needs: changes
+    if: needs.changes.outputs.irrigation == 'true' && hashFiles('services/irrigation/go.mod') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/irrigation/go.sum
+      - run: go vet ./...
+        working-directory: services/irrigation
+      - run: go test ./... -race -count=1
+        working-directory: services/irrigation
+
+  fleet-sim:
+    needs: changes
+    if: needs.changes.outputs.fleet_sim == 'true' && hashFiles('tools/fleet-sim/go.mod') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: tools/fleet-sim/go.sum
+      - run: go vet ./...
+        working-directory: tools/fleet-sim
+      - run: go test ./... -race -count=1
+        working-directory: tools/fleet-sim
+
+  infra:
+    needs: changes
+    if: needs.changes.outputs.infra == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Compose válido em todos os profiles
+        run: cp .env.example .env && make compose-check
+      - name: Shellcheck
+        run: shellcheck infra/vault/*.sh infra/kafka/*.sh infra/*.sh
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: infra/tests/go.sum
+      - name: Sobe a stack de infraestrutura
+        run: |
+          cp .env.example .env
+          docker compose --profile core --profile observability up -d
+          infra/wait-healthy.sh 300
+      - name: Provisiona nós de teste
+        run: make seed
+      - name: Integração (ACL do broker e RLS do banco)
+        run: make test-integration
+      - name: Grafana provisionou o painel
+        run: |
+          curl -fsS -u admin:dev-only-change-me 'http://localhost:3000/api/search?query=Telemetria' | grep -q garden-telemetria
+      - name: Logs em caso de falha
+        if: failure()
+        run: docker compose --profile core --profile observability logs --no-color --tail=200
+      - name: Derruba
+        if: always()
+        run: docker compose --profile core --profile observability down -v
+
+  # Único check obrigatório: jobs pulados por paths-filter contam como sucesso.
+  ci-ok:
+    if: always()
+    needs: [changes, contracts, firmware, bridge, irrigation, fleet-sim, infra]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Falha se algum job falhou ou foi cancelado
+        run: |
+          if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
+            echo "há job com falha"; exit 1
+          fi
