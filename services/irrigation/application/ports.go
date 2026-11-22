@@ -4,6 +4,7 @@ package application
 
 import (
 	"context"
+	"github.com/JohnnyMatteus/garden-iot/services/irrigation/domain/weather"
 	"time"
 )
 
@@ -83,4 +84,9 @@ type Journal interface {
 type Clock interface {
 	Now() time.Time
 	Sleep(ctx context.Context, d time.Duration) error
+}
+
+// WeatherProvider devolve a previsão resumida para a janela a partir de "from".
+type WeatherProvider interface {
+	Forecast(ctx context.Context, latDeg, lonDeg float64, from time.Time, horizon time.Duration) (weather.Forecast, error)
 }
