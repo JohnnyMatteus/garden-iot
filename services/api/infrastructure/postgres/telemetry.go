@@ -81,3 +81,35 @@ func nullTime(t time.Time) *time.Time {
 	}
 	return &t
 }
+
+func (d *DB) LatestByNode(ctx context.Context, tenant, gardenID string, since time.Time) (out []domain.Reading, err error) {
+	err = d.asTenant(ctx, tenant, func(tx pgx.Tx) error {
+		rows, qerr := tx.Query(ctx, `SELECT DISTINCT ON (node_id, kind) `+readingCols+` FROM telemetry.reading
+			WHERE garden_id = $1 AND read_at >= $2 ORDER BY node_id, kind, read_at DESC`, gardenID, since)
+		if qerr != nil {
+			return qerr
+		}
+		out, qerr = collect(rows, scanReading)
+		return qerr
+	})
+	return out, mapErr(err)
+}
+
+func (d *DB) Aggregate(ctx context.Context, tenant string, q application.AggregateQuery) (out []domain.AggregatePoint, err error) {
+	err = d.asTenant(ctx, tenant, func(tx pgx.Tx) error {
+		rows, qerr := tx.Query(ctx, `SELECT time_bucket($1::interval, read_at) AS bucket, avg(value), min(value), max(value), count(*)
+			FROM telemetry.reading
+			WHERE garden_id = $2 AND node_id = $3 AND kind = $4 AND read_at >= $5 AND read_at < $6
+			GROUP BY bucket ORDER BY bucket`,
+			q.Bucket, q.GardenID, q.NodeID, q.Kind, q.From, q.To)
+		if qerr != nil {
+			return qerr
+		}
+		out, qerr = collect(rows, func(r pgx.Rows) (p domain.AggregatePoint, e error) {
+			e = r.Scan(&p.At, &p.Avg, &p.Min, &p.Max, &p.Count)
+			return
+		})
+		return qerr
+	})
+	return out, mapErr(err)
+}

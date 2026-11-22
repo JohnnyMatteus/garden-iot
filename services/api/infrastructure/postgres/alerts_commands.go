@@ -76,3 +76,20 @@ func (d *DB) ExpireBefore(ctx context.Context, at time.Time) (int, error) {
 	tag, err := d.pool.Exec(ctx, `UPDATE garden.command SET status = 'expired' WHERE status IN ('pending', 'sent') AND expires_at <= $1`, at)
 	return int(tag.RowsAffected()), mapErr(err)
 }
+
+func (d *DB) Recent(ctx context.Context, tenant, gardenID, nodeID string, limit int) (out []domain.Command, err error) {
+	err = d.asTenant(ctx, tenant, func(tx pgx.Tx) error {
+		rows, qerr := tx.Query(ctx, `SELECT id::text, garden_id, node_id, action, duration_seconds, status, requested_by, created_at, expires_at
+			FROM garden.command WHERE garden_id = $1 AND ($2::text IS NULL OR node_id = $2) ORDER BY created_at DESC LIMIT $3`,
+			gardenID, nullText(nodeID), limit)
+		if qerr != nil {
+			return qerr
+		}
+		out, qerr = collect(rows, func(r pgx.Rows) (c domain.Command, e error) {
+			e = r.Scan(&c.ID, &c.GardenID, &c.NodeID, &c.Action, &c.DurationSeconds, &c.Status, &c.RequestedBy, &c.CreatedAt, &c.ExpiresAt)
+			return
+		})
+		return qerr
+	})
+	return out, mapErr(err)
+}

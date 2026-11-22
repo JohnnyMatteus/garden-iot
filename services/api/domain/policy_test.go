@@ -95,3 +95,24 @@ func TestNodeStateInSync(t *testing.T) {
 		}
 	}
 }
+
+func TestMoistureBandClassifyAndDeficit(t *testing.T) {
+	b := domain.BandFor("Alface ")
+	v := func(x float64) *float64 { return &x }
+	cases := []struct {
+		in      *float64
+		want    domain.MoistureStatus
+		deficit float64
+	}{{v(20), domain.MoistureBelow, 20}, {v(35), domain.MoistureWithin, 5}, {v(45), domain.MoistureAbove, 0}, {nil, domain.MoistureUnknown, -1}}
+	for _, c := range cases {
+		if got := b.Classify(c.in); got != c.want {
+			t.Errorf("%v: %s, esperado %s", c.in, got, c.want)
+		}
+		if d := b.Deficit(c.in); (d == nil) != (c.deficit < 0) || (d != nil && *d != c.deficit) {
+			t.Errorf("%v: déficit %v", c.in, d)
+		}
+	}
+	if domain.BandFor("jiló") != (domain.MoistureBand{Min: 25, Max: 35}) {
+		t.Error("cultura desconhecida usa a faixa padrão")
+	}
+}

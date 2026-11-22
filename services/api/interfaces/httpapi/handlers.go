@@ -217,3 +217,75 @@ func (s *Server) streamReadings(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 }
+
+func (s *Server) overview(w http.ResponseWriter, r *http.Request) {
+	gardenID := chi.URLParam(r, "gardenId")
+	o, err := s.Svc.Overview(r.Context(), principal(r), gardenID)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	ok(w, overviewDTO{GardenID: gardenID, GeneratedAt: s.Svc.Clock.Now(), OpenAlerts: o.OpenAlerts, Beds: mapList(o.Beds, toBedOverview)})
+}
+
+func queryInt(r *http.Request, name string) (int, error) {
+	v := r.URL.Query().Get(name)
+	if v == "" {
+		return 0, nil
+	}
+	n, err := strconv.Atoi(v)
+	if err != nil {
+		return 0, fmt.Errorf("%w: %s", domain.ErrInvalidInput, name)
+	}
+	return n, nil
+}
+
+func (s *Server) listCommands(w http.ResponseWriter, r *http.Request) {
+	limit, err := queryInt(r, "limit")
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	cs, err := s.Svc.ListCommands(r.Context(), principal(r), chi.URLParam(r, "gardenId"), r.URL.Query().Get("nodeId"), limit)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	ok(w, mapList(cs, toCommand))
+}
+
+func (s *Server) bedDecisions(w http.ResponseWriter, r *http.Request) {
+	limit, err := queryInt(r, "limit")
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	ds, err := s.Svc.BedDecisions(r.Context(), principal(r), chi.URLParam(r, "gardenId"), chi.URLParam(r, "bedId"), limit)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	ok(w, mapList(ds, toDecision))
+}
+
+func (s *Server) aggregateReadings(w http.ResponseWriter, r *http.Request) {
+	bucket, err := time.ParseDuration(r.URL.Query().Get("bucket"))
+	if err != nil {
+		s.fail(w, r, fmt.Errorf("%w: bucket (ex.: 5m, 1h, 24h)", domain.ErrInvalidInput))
+		return
+	}
+	q := application.AggregateQuery{GardenID: chi.URLParam(r, "gardenId"), NodeID: chi.URLParam(r, "nodeId"), Kind: r.URL.Query().Get("kind"), Bucket: bucket}
+	if q.From, err = parseTime(r, "from"); err == nil {
+		q.To, err = parseTime(r, "to")
+	}
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	ps, err := s.Svc.Aggregate(r.Context(), principal(r), q)
+	if err != nil {
+		s.fail(w, r, err)
+		return
+	}
+	ok(w, mapList(ps, toAggregatePoint))
+}

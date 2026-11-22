@@ -199,3 +199,72 @@ func TestSSEStreamsReadingsAndAcceptsQueryToken(t *testing.T) {
 		t.Fatalf("evento inesperado: %q", got)
 	}
 }
+
+type overviewCatalog struct{ catalog }
+
+func (overviewCatalog) ListBeds(context.Context, string, string) ([]domain.Bed, error) {
+	return []domain.Bed{{ID: "c1", Name: "Alface", Crop: "alface"}}, nil
+}
+func (overviewCatalog) ListNodes(context.Context, string, string) ([]domain.Node, error) {
+	return nil, nil
+}
+
+type overviewReadings struct{ readings }
+
+func (overviewReadings) LatestByNode(context.Context, string, string, time.Time) ([]domain.Reading, error) {
+	return nil, nil
+}
+func (overviewReadings) Aggregate(context.Context, string, application.AggregateQuery) ([]domain.AggregatePoint, error) {
+	return []domain.AggregatePoint{{At: time.Unix(0, 0).UTC(), Avg: 30, Min: 28, Max: 33, Count: 12}}, nil
+}
+
+type overviewTwin struct{ twin }
+
+func (overviewTwin) States(context.Context, string, string) ([]domain.NodeState, error) {
+	return nil, nil
+}
+
+type overviewCommands struct{ commands }
+
+func (overviewCommands) Recent(context.Context, string, string, string, int) ([]domain.Command, error) {
+	return nil, nil
+}
+
+type overviewAlerts struct{ application.AlertStore }
+
+func (overviewAlerts) List(context.Context, string, string, bool) ([]domain.Alert, error) {
+	return nil, nil
+}
+
+func overviewServer(t *testing.T) (*httptest.Server, *auth.JWT) {
+	t.Helper()
+	jwtAuth, _ := auth.NewJWT(secret, "garden-api")
+	svc := &application.Service{Catalog: overviewCatalog{}, Readings: overviewReadings{}, Twin: overviewTwin{}, Commands: overviewCommands{},
+		Alerts: overviewAlerts{}, Clock: clock{}}
+	srv := httptest.NewServer((&httpapi.Server{Svc: svc, Verifier: jwtAuth, Log: slog.New(slog.NewTextHandler(io.Discard, nil))}).Handler())
+	t.Cleanup(srv.Close)
+	return srv, jwtAuth
+}
+
+func TestOverviewWithoutReadingIsUnknownNotWithin(t *testing.T) {
+	srv, j := overviewServer(t)
+	resp, body := do(t, "GET", srv.URL+"/v1/gardens/horta-1/overview", token(t, j, "demo", domain.RoleViewer), "")
+	if resp.StatusCode != 200 || !strings.Contains(body, `"moistureStatus":"unknown"`) || !strings.Contains(body, `"idealMaxPct":40`) || strings.Contains(body, "moisturePct") {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+}
+
+func TestAggregateValidatesBucket(t *testing.T) {
+	srv, j := overviewServer(t)
+	tok := token(t, j, "demo", domain.RoleViewer)
+	base := srv.URL + "/v1/gardens/horta-1/nodes/n1/readings/aggregate?kind=soil_moisture_vwc_pct"
+	if resp, body := do(t, "GET", base+"&bucket=1h", tok, ""); resp.StatusCode != 200 || !strings.Contains(body, `"avg":30`) {
+		t.Fatalf("status %d body %s", resp.StatusCode, body)
+	}
+	if resp, _ := do(t, "GET", base+"&bucket=7m", tok, ""); resp.StatusCode != 422 {
+		t.Fatalf("bucket inválido: status %d", resp.StatusCode)
+	}
+	if resp, _ := do(t, "GET", base, tok, ""); resp.StatusCode != 422 {
+		t.Fatalf("sem bucket: status %d", resp.StatusCode)
+	}
+}

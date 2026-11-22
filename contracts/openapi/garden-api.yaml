@@ -225,6 +225,73 @@ paths:
             application/json:
               schema: { $ref: "#/components/schemas/Command" }
         "404": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}/overview:
+    get:
+      tags: [catalog]
+      summary: Mapa da horta, canteiros com última umidade, déficit e estado da válvula
+      description: |
+        Leituras com mais de 30 minutos não entram (`moistureStatus: unknown`). A faixa ideal é a
+        padrão da cultura; `deficitPct` é a distância, em pontos percentuais, até o topo da faixa.
+        `irrigating` só é verdadeiro quando o nó reportou a válvula aberta.
+      parameters: [{ $ref: "#/components/parameters/GardenId" }]
+      responses:
+        "200":
+          description: visão geral
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Overview" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}/commands:
+    get:
+      tags: [irrigation]
+      summary: Histórico de comandos de rega, mais recentes primeiro
+      parameters:
+        - { $ref: "#/components/parameters/GardenId" }
+        - { name: nodeId, in: query, schema: { type: string } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 500, default: 100 } }
+      responses:
+        "200":
+          description: comandos
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Command" } }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}/beds/{bedId}/decisions:
+    get:
+      tags: [irrigation]
+      summary: Decisões do canteiro com o motivo, regas pedidas e alertas das regras de segurança
+      parameters:
+        - { $ref: "#/components/parameters/GardenId" }
+        - { name: bedId, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9-]{1,32}$" } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 200, default: 50 } }
+      responses:
+        "200":
+          description: decisões, da mais recente para a mais antiga
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Decision" } }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}/nodes/{nodeId}/readings/aggregate:
+    get:
+      tags: [telemetry]
+      summary: Série em baldes de tempo (média, mínimo e máximo)
+      description: Padrão das últimas 24 h. Aceita buckets de 5m, 15m, 1h e 24h e no máximo 2000 baldes.
+      parameters:
+        - { $ref: "#/components/parameters/GardenId" }
+        - { $ref: "#/components/parameters/NodeId" }
+        - { name: kind, in: query, required: true, schema: { type: string, example: soil_moisture_vwc_pct } }
+        - { name: bucket, in: query, required: true, schema: { type: string, enum: [5m, 15m, 1h, 24h] } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+      responses:
+        "200":
+          description: pontos em ordem cronológica
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/AggregatePoint" } }
+        "422": { $ref: "#/components/responses/Problem" }
   /v1/stream/readings:
     get:
       tags: [telemetry]
@@ -373,3 +440,55 @@ components:
         requestedBy: { type: string }
         createdAt: { type: string, format: date-time }
         expiresAt: { type: string, format: date-time }
+    Valve:
+      type: object
+      required: [inSync]
+      properties:
+        desired: { allOf: [{ $ref: "#/components/schemas/ActuatorState" }], nullable: true }
+        reported: { allOf: [{ $ref: "#/components/schemas/ActuatorState" }], nullable: true }
+        inSync: { type: boolean }
+    BedOverview:
+      allOf:
+        - { $ref: "#/components/schemas/Bed" }
+        - type: object
+          required: [idealMinPct, idealMaxPct, moistureStatus, irrigating]
+          properties:
+            idealMinPct: { type: number }
+            idealMaxPct: { type: number }
+            moistureStatus: { type: string, enum: [unknown, below, within, above] }
+            moisturePct: { type: number }
+            deficitPct: { type: number }
+            airTempC: { type: number }
+            readAt: { type: string, format: date-time }
+            sensorNodeId: { type: string }
+            actuatorNodeId: { type: string }
+            valve: { $ref: "#/components/schemas/Valve" }
+            irrigating: { type: boolean }
+            openCommand: { $ref: "#/components/schemas/Command" }
+    Overview:
+      type: object
+      required: [gardenId, generatedAt, openAlerts, beds]
+      properties:
+        gardenId: { type: string }
+        generatedAt: { type: string, format: date-time }
+        openAlerts: { type: integer }
+        beds: { type: array, items: { $ref: "#/components/schemas/BedOverview" } }
+    Decision:
+      type: object
+      required: [at, kind, outcome, reason]
+      properties:
+        at: { type: string, format: date-time }
+        kind: { type: string, enum: [irrigation, alert] }
+        outcome: { type: string, description: status do comando ou severidade do alerta }
+        reason: { type: string }
+        nodeId: { type: string }
+        durationSeconds: { type: integer }
+    AggregatePoint:
+      type: object
+      required: [at, avg, min, max, count]
+      properties:
+        at: { type: string, format: date-time }
+        avg: { type: number }
+        min: { type: number }
+        max: { type: number }
+        count: { type: integer }

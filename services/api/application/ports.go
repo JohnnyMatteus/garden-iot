@@ -36,6 +36,17 @@ type ReadingStore interface {
 	Latest(ctx context.Context, tenant, gardenID, kind string, since time.Time) (*domain.Reading, error)
 	// IngestedAfter devolve leituras gravadas depois do instante, em ordem, para o SSE.
 	IngestedAfter(ctx context.Context, tenant, gardenID string, after time.Time, limit int) ([]IngestedReading, error)
+	// LatestByNode devolve a leitura mais recente de cada par (nó, grandeza) da horta desde "since".
+	LatestByNode(ctx context.Context, tenant, gardenID string, since time.Time) ([]domain.Reading, error)
+	Aggregate(ctx context.Context, tenant string, q AggregateQuery) ([]domain.AggregatePoint, error)
+}
+
+type AggregateQuery struct {
+	GardenID string
+	NodeID   string
+	Kind     string
+	From, To time.Time
+	Bucket   time.Duration
 }
 
 type IngestedReading struct {
@@ -45,6 +56,7 @@ type IngestedReading struct {
 
 type TwinStore interface {
 	State(ctx context.Context, tenant, gardenID, nodeID string) (domain.NodeState, error)
+	States(ctx context.Context, tenant, gardenID string) ([]domain.NodeState, error)
 	SetDesired(ctx context.Context, tenant, gardenID, nodeID string, s domain.ActuatorState) error
 	// SetReported é chamado pelo adaptador MQTT, em nome do nó (identidade vem do tópico).
 	SetReported(ctx context.Context, tenant, gardenID, nodeID string, s domain.ActuatorState) error
@@ -59,6 +71,8 @@ type CommandStore interface {
 	Create(ctx context.Context, tenant string, c domain.Command) error
 	Get(ctx context.Context, tenant, gardenID, nodeID, commandID string) (domain.Command, error)
 	HasOpen(ctx context.Context, tenant, gardenID, nodeID string) (bool, error)
+	// Recent devolve os comandos da horta, mais recentes primeiro; nodeID vazio traz todos os nós.
+	Recent(ctx context.Context, tenant, gardenID, nodeID string, limit int) ([]domain.Command, error)
 	SetStatus(ctx context.Context, tenant, commandID string, s domain.CommandStatus) error
 	// ExpireBefore marca como expirados os comandos em aberto vencidos, entre tenants.
 	ExpireBefore(ctx context.Context, at time.Time) (int, error)

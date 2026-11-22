@@ -69,3 +69,25 @@ func (d *DB) SetReported(ctx context.Context, tenant, gardenID, nodeID string, s
 	}
 	return mapErr(err)
 }
+
+func (d *DB) States(ctx context.Context, tenant, gardenID string) (out []domain.NodeState, err error) {
+	err = d.asTenant(ctx, tenant, func(tx pgx.Tx) error {
+		rows, qerr := tx.Query(ctx, `SELECT node_id, desired, reported FROM garden.node_state WHERE garden_id = $1`, gardenID)
+		if qerr != nil {
+			return qerr
+		}
+		out, qerr = collect(rows, func(r pgx.Rows) (st domain.NodeState, e error) {
+			var desired, reported []byte
+			if e = r.Scan(&st.NodeID, &desired, &reported); e != nil {
+				return
+			}
+			if st.Desired, e = decodeState(desired); e != nil {
+				return
+			}
+			st.Reported, e = decodeState(reported)
+			return
+		})
+		return qerr
+	})
+	return out, mapErr(err)
+}

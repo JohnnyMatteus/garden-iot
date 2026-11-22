@@ -106,3 +106,79 @@ func mapList[T, U any](in []T, f func(T) U) []U {
 	}
 	return out
 }
+
+type valveDTO struct {
+	Desired  *actuatorStateDTO `json:"desired,omitempty"`
+	Reported *actuatorStateDTO `json:"reported,omitempty"`
+	InSync   bool              `json:"inSync"`
+}
+
+type bedOverviewDTO struct {
+	bedDTO
+	IdealMinPct    float64     `json:"idealMinPct"`
+	IdealMaxPct    float64     `json:"idealMaxPct"`
+	MoistureStatus string      `json:"moistureStatus"`
+	MoisturePct    *float64    `json:"moisturePct,omitempty"`
+	DeficitPct     *float64    `json:"deficitPct,omitempty"`
+	AirTempC       *float64    `json:"airTempC,omitempty"`
+	ReadAt         *time.Time  `json:"readAt,omitempty"`
+	SensorNodeID   string      `json:"sensorNodeId,omitempty"`
+	ActuatorNodeID string      `json:"actuatorNodeId,omitempty"`
+	Valve          *valveDTO   `json:"valve,omitempty"`
+	Irrigating     bool        `json:"irrigating"`
+	OpenCommand    *commandDTO `json:"openCommand,omitempty"`
+}
+
+type overviewDTO struct {
+	GardenID    string           `json:"gardenId"`
+	GeneratedAt time.Time        `json:"generatedAt"`
+	OpenAlerts  int              `json:"openAlerts"`
+	Beds        []bedOverviewDTO `json:"beds"`
+}
+
+type decisionDTO struct {
+	At              time.Time `json:"at"`
+	Kind            string    `json:"kind"`
+	Outcome         string    `json:"outcome"`
+	Reason          string    `json:"reason"`
+	NodeID          string    `json:"nodeId,omitempty"`
+	DurationSeconds int       `json:"durationSeconds,omitempty"`
+}
+
+type aggregatePointDTO struct {
+	At    time.Time `json:"at"`
+	Avg   float64   `json:"avg"`
+	Min   float64   `json:"min"`
+	Max   float64   `json:"max"`
+	Count int       `json:"count"`
+}
+
+func toBedOverview(o domain.BedOverview) bedOverviewDTO {
+	d := bedOverviewDTO{
+		bedDTO: toBed(o.Bed), IdealMinPct: o.Band.Min, IdealMaxPct: o.Band.Max, MoistureStatus: string(o.Status),
+		SensorNodeID: o.SensorNodeID, ActuatorNodeID: o.ActuatorNodeID, Irrigating: o.Irrigating(),
+	}
+	if o.Moisture != nil {
+		d.MoisturePct, d.ReadAt = &o.Moisture.Value, &o.Moisture.ReadAt
+		d.DeficitPct = o.Band.Deficit(&o.Moisture.Value)
+	}
+	if o.AirTemp != nil {
+		d.AirTempC = &o.AirTemp.Value
+	}
+	if o.Valve != nil {
+		d.Valve = &valveDTO{toActuator(o.Valve.Desired), toActuator(o.Valve.Reported), o.Valve.InSync()}
+	}
+	if o.OpenCommand != nil {
+		c := toCommand(*o.OpenCommand)
+		d.OpenCommand = &c
+	}
+	return d
+}
+
+func toDecision(d domain.Decision) decisionDTO {
+	return decisionDTO{d.At, string(d.Kind), d.Outcome, d.Reason, d.NodeID, d.DurationSeconds}
+}
+
+func toAggregatePoint(p domain.AggregatePoint) aggregatePointDTO {
+	return aggregatePointDTO{p.At, p.Avg, p.Min, p.Max, p.Count}
+}
