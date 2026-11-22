@@ -99,7 +99,7 @@ jobs:
 
   firmware-host:
     needs: changes
-    if: needs.changes.outputs.firmware == 'true' && hashFiles('firmware/test/host/CMakeLists.txt') != ''
+    if: needs.changes.outputs.firmware == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -111,7 +111,7 @@ jobs:
 
   firmware:
     needs: changes
-    if: needs.changes.outputs.firmware == 'true' && hashFiles('firmware/CMakeLists.txt') != ''
+    if: needs.changes.outputs.firmware == 'true'
     runs-on: ubuntu-latest
     container: espressif/idf:v5.3.2
     steps:
@@ -123,7 +123,7 @@ jobs:
 
   bridge:
     needs: changes
-    if: needs.changes.outputs.bridge == 'true' && hashFiles('services/bridge/go.mod') != ''
+    if: needs.changes.outputs.bridge == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -142,7 +142,7 @@ jobs:
 
   bridge-integration:
     needs: changes
-    if: needs.changes.outputs.bridge == 'true' && hashFiles('services/bridge/go.mod') != ''
+    if: needs.changes.outputs.bridge == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -186,7 +186,7 @@ jobs:
 
   api:
     needs: changes
-    if: needs.changes.outputs.api == 'true' && hashFiles('services/api/go.mod') != ''
+    if: needs.changes.outputs.api == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -201,7 +201,7 @@ jobs:
 
   irrigation:
     needs: changes
-    if: needs.changes.outputs.irrigation == 'true' && hashFiles('services/irrigation/go.mod') != ''
+    if: needs.changes.outputs.irrigation == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -216,7 +216,7 @@ jobs:
 
   fleet-sim:
     needs: changes
-    if: needs.changes.outputs.fleet_sim == 'true' && hashFiles('tools/fleet-sim/go.mod') != ''
+    if: needs.changes.outputs.fleet_sim == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
