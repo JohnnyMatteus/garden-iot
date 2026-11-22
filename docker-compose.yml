@@ -288,7 +288,7 @@ services:
     read_only: true
     tmpfs:
       - /tmp
-      - /etc/nginx/conf.d
+      - /etc/nginx/conf.d:uid=101,gid=101,mode=0755
     networks: [garden]
 
   # Opt-in (profile irrigation): comanda válvulas dos canteiros em infra/irrigation/beds.example.json.
