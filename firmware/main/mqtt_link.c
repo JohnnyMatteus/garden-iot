@@ -30,6 +30,8 @@ static void on_mqtt(void *arg, esp_event_base_t base, int32_t id, void *data)
         xEventGroupClearBits(events, CONNECTED);
         break;
     case MQTT_EVENT_PUBLISHED:
+        /* Limite conhecido (ADR 0013): o esp-mqtt do ESP-IDF 5.4.1 não expõe o reason code do PUBACK, então
+         * um 0x10 (nenhum assinante recebeu o lote) é indistinguível de uma entrega confirmada. */
         if (ev->msg_id == pending_id) {
             xEventGroupSetBits(events, ACKED);
         }

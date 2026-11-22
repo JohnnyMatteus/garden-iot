@@ -18,5 +18,6 @@ O garden-iot é um projeto próprio, ao lado do kafka-telemetry. Pode reaproveit
 | [0010](0010-isolamento-por-tenant-com-rls.md) | impl. | Isolamento por tenant com RLS no TimescaleDB | sim |
 | [0011](0011-persistencia-como-segundo-binario-do-modulo-bridge.md) | M1-10 | Persistência Kafka → TimescaleDB como segundo binário do módulo bridge | não |
 | [0012](0012-api-do-garden.md) | pedido do autor | Serviço `api` (REST, SSE, JWT) como fronteira para web e comandos | não |
+| [0013](0013-confirmacao-de-entrega-da-telemetria-e-reinicio-do-broker.md) | impl. | PUBACK 0x10 como falha de entrega e limite da durabilidade do EMQX 5.8 | sim |
 
 Onde o design doc não registra alternativas, o ADR diz isso explicitamente em vez de inventar; o autor completa antes de aceitar.

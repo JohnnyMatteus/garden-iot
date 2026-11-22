@@ -5,9 +5,11 @@ import (
 	"context"
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"net/url"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/eclipse/paho.golang/autopaho"
@@ -87,9 +89,32 @@ type link struct {
 	cancel context.CancelFunc
 }
 
+// ErrNoMatchingSubscribers indica PUBACK com código 0x10: o broker aceitou a mensagem, mas não havia
+// ninguém para recebê-la, então ela foi descartada. Para a telemetria isso não é entrega.
+var ErrNoMatchingSubscribers = errors.New("PUBACK 0x10: nenhum assinante recebeu a mensagem")
+
+const reasonNoMatchingSubscribers = 0x10
+
 func (l *link) Publish(ctx context.Context, topic string, payload []byte) error {
-	_, err := l.cm.Publish(ctx, &paho.Publish{Topic: topic, QoS: 1, Payload: payload})
-	return err
+	resp, err := l.cm.Publish(ctx, &paho.Publish{Topic: topic, QoS: 1, Payload: payload})
+	if err != nil {
+		return err
+	}
+	if resp == nil {
+		return nil
+	}
+	return routingError(topic, resp.ReasonCode)
+}
+
+// routingError diz se o PUBACK confirma o roteamento. O autopaho só trata códigos >= 0x80 como erro, então
+// 0x10 chegaria como sucesso. Só a telemetria exige assinante: a ACL só deixa o grupo $share/bridge
+// assiná-la, de modo que 0x10 significa que nenhuma réplica da bridge estava assinada (por exemplo logo
+// depois de o EMQX reiniciar, que perde as assinaturas em memória). Estado e LWT podem não ter assinante.
+func routingError(topic string, reason byte) error {
+	if reason == reasonNoMatchingSubscribers && strings.HasSuffix(topic, "/telemetria") {
+		return ErrNoMatchingSubscribers
+	}
+	return nil
 }
 
 // Kill corta a conexão sem DISCONNECT (o broker publica o Last Will) e impede a reconexão.
