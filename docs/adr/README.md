@@ -16,6 +16,6 @@ O garden-iot é um projeto próprio, ao lado do kafka-telemetry. Pode reaproveit
 | [0008](0008-wokwi-e-simulador-de-frota.md) | G-08 | Wokwi + simulador de frota como ambiente padrão de desenvolvimento | sim |
 | [0009](0009-identidade-no-certificado-e-revogacao-por-crl.md) | impl. | Identidade no CN do certificado e revogação por CRL | sim |
 | [0010](0010-isolamento-por-tenant-com-rls.md) | impl. | Isolamento por tenant com RLS no TimescaleDB | sim |
-| [0011](0011-api-do-garden.md) | pedido do autor | Serviço `api` (REST, SSE, JWT) como fronteira para web e comandos | não |
+| [0012](0012-api-do-garden.md) | pedido do autor | Serviço `api` (REST, SSE, JWT) como fronteira para web e comandos | não |
 
 Onde o design doc não registra alternativas, o ADR diz isso explicitamente em vez de inventar; o autor completa antes de aceitar.

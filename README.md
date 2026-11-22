@@ -84,7 +84,7 @@ O CI (`.github/workflows/ci.yml`, workflow `CI`) roda um job por área via paths
 
 ## Decisões principais
 
-[ADRs](docs/adr/README.md): MQTT 5 na borda e Kafka no backend (0001), Protobuf com Schema Registry BACKWARD (0002), gêmeo digital (0003), intertravamentos no firmware (0004), FAO-56 corrigida pelo sensor (0005), agente sem acesso a atuadores (0006), ACL por versão de firmware (0007), Wokwi e simulador (0008), identidade no CN e revogação por CRL (0009), RLS por tenant (0010), API como fronteira (0011).
+[ADRs](docs/adr/README.md): MQTT 5 na borda e Kafka no backend (0001), Protobuf com Schema Registry BACKWARD (0002), gêmeo digital (0003), intertravamentos no firmware (0004), FAO-56 corrigida pelo sensor (0005), agente sem acesso a atuadores (0006), ACL por versão de firmware (0007), Wokwi e simulador (0008), identidade no CN e revogação por CRL (0009), RLS por tenant (0010), API como fronteira (0012).
 
 ## Segurança
 

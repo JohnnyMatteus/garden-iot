@@ -10,7 +10,7 @@ O design doc exige tenant em todas as tabelas e isolamento verificado por testes
 
 ## Decisão
 
-Row-Level Security na hypertable `telemetry.reading`. Cada tenant tem um papel de login `tenant_<id>` (membro de `telemetry_tenant`) e a política compara `tenant_id` com o papel corrente. O consumidor usa `svc_telemetry_writer` (escreve em qualquer tenant, o tenant vem validado da mensagem) e o Grafana usa `svc_grafana` (leitura de todos os tenants). A API (ADR 0011) abre a transação com `SET LOCAL ROLE tenant_<id>` derivado do JWT, de modo que um erro de filtro na aplicação não vaza dados.
+Row-Level Security na hypertable `telemetry.reading`. Cada tenant tem um papel de login `tenant_<id>` (membro de `telemetry_tenant`) e a política compara `tenant_id` com o papel corrente. O consumidor usa `svc_telemetry_writer` (escreve em qualquer tenant, o tenant vem validado da mensagem) e o Grafana usa `svc_grafana` (leitura de todos os tenants). A API (ADR 0012) abre a transação com `SET LOCAL ROLE tenant_<id>` derivado do JWT, de modo que um erro de filtro na aplicação não vaza dados.
 
 ## Alternativas consideradas
 

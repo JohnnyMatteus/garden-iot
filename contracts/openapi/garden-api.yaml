@@ -6,7 +6,7 @@ info:
     API do front-end e dos operadores. Autenticação por JWT (claims `tenant`, `sub`, `role`).
     O tenant vem sempre do token, nunca do caminho ou do corpo. A API nunca aciona atuador
     diretamente: o pedido de rega passa pela política de segurança e vira um comando MQTT 5
-    (Correlation Data e Message Expiry) que o nó pode recusar (ADR 0004 e 0011).
+    (Correlation Data e Message Expiry) que o nó pode recusar (ADR 0004 e 0012).
 servers:
   - url: http://localhost:8090
 security:

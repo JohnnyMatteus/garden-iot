@@ -1,4 +1,4 @@
-# 0011. Serviço `api` como fronteira para web e comandos
+# 0012. Serviço `api` como fronteira para web e comandos
 
 - **Status:** Proposto
 - **Data:** 2026-11-21

@@ -9,7 +9,7 @@ Plataforma IoT de cuidado de hortas: edge (ESP32) para MQTT 5 (EMQX) para Kafka 
 - Contratos entre partes ficam em `contracts/` (Protobuf, contrato MQTT, OpenAPI). Mudança de contrato: `make contracts-lint contracts-breaking`; nunca renumerar nem reutilizar campo Protobuf.
 - Serviços Go com arquitetura hexagonal: `domain/`, `application/`, `infrastructure/`, `interfaces/`. Domínio não importa infraestrutura.
 - Bibliotecas consolidadas em vez de código à mão; comentários só com o porquê.
-- O agente de IA e a API nunca acionam atuador diretamente: só publicam comando que passa pela política de segurança (ADR 0004, 0006, 0011).
+- O agente de IA e a API nunca acionam atuador diretamente: só publicam comando que passa pela política de segurança (ADR 0004, 0006, 0012).
 - Identidade MQTT: CN do certificado (`tenant/horta/no` ou `svc:<nome>`), ver ADR 0009.
 - Máquina compartilhada: localmente só lint e testes unitários; integração roda no CI.
 
