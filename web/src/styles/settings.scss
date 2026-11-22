@@ -1,0 +1,5 @@
+@use 'vuetify/settings' with (
+  $body-font-family: ('Instrument Sans Variable', system-ui, sans-serif),
+  $heading-font-family: ('Instrument Sans Variable', system-ui, sans-serif),
+  $border-radius-root: 4px
+);
