@@ -23,6 +23,7 @@ jobs:
       firmware: ${{ steps.f.outputs.firmware }}
       bridge: ${{ steps.f.outputs.bridge }}
       irrigation: ${{ steps.f.outputs.irrigation }}
+      api: ${{ steps.f.outputs.api }}
       fleet_sim: ${{ steps.f.outputs.fleet_sim }}
       contracts: ${{ steps.f.outputs.contracts }}
       infra: ${{ steps.f.outputs.infra }}
@@ -37,6 +38,9 @@ jobs:
               - 'contracts/mqtt/**'
             bridge:
               - 'services/bridge/**'
+              - 'contracts/**'
+            api:
+              - 'services/api/**'
               - 'contracts/**'
             irrigation:
               - 'services/irrigation/**'
@@ -85,6 +89,18 @@ jobs:
         run: go test ./... -count=1
         working-directory: contracts
 
+  firmware-host:
+    needs: changes
+    if: needs.changes.outputs.firmware == 'true' && hashFiles('firmware/test/host/CMakeLists.txt') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Testes C no host
+        run: |
+          cmake -S firmware/test/host -B build/fw-host
+          cmake --build build/fw-host
+          ctest --test-dir build/fw-host --output-on-failure
+
   firmware:
     needs: changes
     if: needs.changes.outputs.firmware == 'true' && hashFiles('firmware/CMakeLists.txt') != ''
@@ -115,6 +131,35 @@ jobs:
           working-directory: services/bridge
       - run: go test ./... -race -count=1
         working-directory: services/bridge
+
+  bridge-integration:
+    needs: changes
+    if: needs.changes.outputs.bridge == 'true' && hashFiles('services/bridge/go.mod') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/bridge/go.sum
+      - name: Integração da bridge (testcontainers)
+        run: go test -tags=integration ./... -count=1
+        working-directory: services/bridge
+
+  api:
+    needs: changes
+    if: needs.changes.outputs.api == 'true' && hashFiles('services/api/go.mod') != ''
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ env.GO_VERSION }}
+          cache-dependency-path: services/api/go.sum
+      - run: go vet ./...
+        working-directory: services/api
+      - run: go test ./... -race -count=1
+        working-directory: services/api
 
   irrigation:
     needs: changes
@@ -182,7 +227,7 @@ jobs:
   # Único check obrigatório: jobs pulados por paths-filter contam como sucesso.
   ci-ok:
     if: always()
-    needs: [changes, contracts, firmware, bridge, irrigation, fleet-sim, infra]
+    needs: [changes, contracts, firmware-host, firmware, bridge, bridge-integration, api, irrigation, fleet-sim, infra]
     runs-on: ubuntu-latest
     steps:
       - name: Falha se algum job falhou ou foi cancelado
