@@ -230,9 +230,15 @@ jobs:
         run: cd tests/integration && go vet -tags integration ./...
       - name: Sobe o ambiente (core)
         run: |
+          set -o pipefail
           cp .env.example .env
-          docker compose --profile core up -d --remove-orphans
-          infra/wait-healthy.sh 300
+          {
+            docker compose --profile core up -d --remove-orphans &&
+              infra/wait-healthy.sh 300
+          } 2>&1 | tee "$RUNNER_TEMP/up.log"
+      - name: Diagnóstico da subida (anotações)
+        if: failure()
+        run: infra/ci-annotate.sh e2e "$RUNNER_TEMP/up.log" --profile core
       - name: Integração ponta a ponta (bridge, persistência e fleet-sim como processos)
         run: cd tests/integration && go test -tags integration -count=1 -timeout 15m -v ./...
       - name: Logs do ambiente em caso de falha
@@ -303,9 +309,15 @@ jobs:
           cache-dependency-path: infra/tests/go.sum
       - name: Sobe a stack de infraestrutura
         run: |
+          set -o pipefail
           cp .env.example .env
-          docker compose --profile core --profile observability up -d
-          infra/wait-healthy.sh 300
+          {
+            docker compose --profile core --profile observability up -d &&
+              infra/wait-healthy.sh 300
+          } 2>&1 | tee "$RUNNER_TEMP/up.log"
+      - name: Diagnóstico da subida (anotações)
+        if: failure()
+        run: infra/ci-annotate.sh infra "$RUNNER_TEMP/up.log" --profile core --profile observability
       - name: Provisiona nós de teste
         run: make seed
       - name: Integração (ACL do broker e RLS do banco)
