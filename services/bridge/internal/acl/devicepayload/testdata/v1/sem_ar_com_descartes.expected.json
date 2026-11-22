@@ -1,0 +1,5 @@
+{"fw_version":"1.0.0","sequence":42,"timestamp":"2024-11-21T11:53:20Z","dropped":3,
+ "soil_moisture_vwc_pct":{"value":50,"quality":"medido"},
+ "illuminance_lux":{"value":12000,"quality":"medido"},
+ "solar_radiation_w_m2":{"value":94.8,"quality":"estimado"},
+ "water_level_ok":true}
