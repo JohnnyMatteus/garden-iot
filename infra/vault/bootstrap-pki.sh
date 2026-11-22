@@ -61,4 +61,5 @@ vault write pki/roles/server \
 issue server emqx emqx alt_names=localhost,emqx ip_sans=127.0.0.1
 issue service svc:bridge bridge
 issue service svc:fleet-sim fleet-sim
+issue service svc:api api
 echo "PKI pronta em $OUT"
