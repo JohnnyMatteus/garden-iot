@@ -1,0 +1,8 @@
+name: strong-wind
+description: Vento forte e rajadas, ar seco, solo secando rápido.
+soil_adc: {base: 2200, drift_per_hour: 60, noise: 25}
+air_temp_c: {base: 21, daily_amplitude: 4, noise: 0.4}
+air_rh_pct: {base: 40, daily_amplitude: -10, noise: 2}
+lux: {peak: 50000, noise: 3000}
+wind_ms: {base: 12, noise: 4}
+rain_mm: {chance: 0, amount: 0}

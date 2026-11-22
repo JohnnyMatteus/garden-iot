@@ -1,0 +1,8 @@
+name: rain
+description: Chuva intermitente; solo encharca, umidade do ar alta, pouca luz.
+soil_adc: {base: 1700, drift_per_hour: -120, noise: 20, floor: 1250}
+air_temp_c: {base: 18, daily_amplitude: 2, noise: 0.2}
+air_rh_pct: {base: 90, daily_amplitude: -4, noise: 1}
+lux: {peak: 9000, noise: 800}
+wind_ms: {base: 3, noise: 1}
+rain_mm: {chance: 0.6, amount: 0.4}

@@ -1,0 +1,8 @@
+name: sunny
+description: Dia ensolarado, solo secando devagar, ar quente e seco.
+soil_adc: {base: 2000, drift_per_hour: 25, noise: 15}
+air_temp_c: {base: 24, daily_amplitude: 6, noise: 0.2}
+air_rh_pct: {base: 55, daily_amplitude: -15, noise: 1}
+lux: {peak: 60000, noise: 1500}
+wind_ms: {base: 2, noise: 0.5}
+rain_mm: {chance: 0, amount: 0}

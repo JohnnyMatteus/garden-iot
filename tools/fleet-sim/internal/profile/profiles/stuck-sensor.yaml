@@ -1,0 +1,9 @@
+name: stuck-sensor
+description: Sensor de umidade do solo travado em valor constante; demais sensores normais.
+soil_adc: {base: 2100, drift_per_hour: 0, noise: 0}
+stuck_soil: true
+air_temp_c: {base: 24, daily_amplitude: 6, noise: 0.2}
+air_rh_pct: {base: 55, daily_amplitude: -15, noise: 1}
+lux: {peak: 60000, noise: 1500}
+wind_ms: {base: 2, noise: 0.5}
+rain_mm: {chance: 0, amount: 0}
