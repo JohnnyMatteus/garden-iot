@@ -125,7 +125,8 @@ func (s *Service) RequestIrrigation(ctx context.Context, p domain.Principal, gar
 		_ = s.Commands.SetStatus(ctx, p.TenantID, cmd.ID, domain.CommandFailed)
 		return domain.Command{}, fmt.Errorf("%w: %v", ErrPublish, err)
 	}
-	if err := s.Commands.SetStatus(ctx, p.TenantID, cmd.ID, domain.CommandSent); err != nil {
+	// A confirmação do nó pode chegar antes deste update; nesse caso o status já é final.
+	if err := s.Commands.SetStatus(ctx, p.TenantID, cmd.ID, domain.CommandSent); err != nil && !errors.Is(err, domain.ErrNotFound) {
 		return domain.Command{}, err
 	}
 	cmd.Status = domain.CommandSent

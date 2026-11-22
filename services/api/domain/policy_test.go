@@ -42,7 +42,7 @@ func TestIrrigationPolicy(t *testing.T) {
 		{name: "comando em aberto", role: domain.RoleOwner, node: actuator, dur: time.Minute,
 			cond: domain.Conditions{OpenCommand: true}, rules: []string{domain.RuleOpenCommand}},
 		{name: "várias violações juntas", role: domain.RoleOwner, node: actuator, dur: time.Hour,
-			cond: domain.Conditions{AirTempC: f(0), ReservoirPct: f(0)},
+			cond:  domain.Conditions{AirTempC: f(0), ReservoirPct: f(0)},
 			rules: []string{domain.RuleMaxDuration, domain.RuleFrost, domain.RuleReservoir}},
 	}
 	for _, tc := range tests {
