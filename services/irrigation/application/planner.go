@@ -23,6 +23,7 @@ type Bed struct {
 	Method         safety.Method
 	FlowLpm        float64 // vazão esperada com a válvula aberta
 	LatDeg, LonDeg float64
+	ElevationM     float64
 	// MoistureThresholdPct é o limite calibrado do sensor: abaixo dele, rega.
 	MoistureThresholdPct float64
 }
