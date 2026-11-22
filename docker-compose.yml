@@ -186,6 +186,7 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-dev-only-change-me}
       TELEMETRY_WRITER_PASSWORD: ${TELEMETRY_WRITER_PASSWORD:-dev-only-change-me}
       TELEMETRY_OPS_PASSWORD: ${TELEMETRY_OPS_PASSWORD:-dev-only-change-me}
+      GARDEN_API_PASSWORD: ${GARDEN_API_PASSWORD:-dev-only-change-me}
     ports:
       - "127.0.0.1:${TIMESCALEDB_PORT:-5432}:5432"
     volumes:

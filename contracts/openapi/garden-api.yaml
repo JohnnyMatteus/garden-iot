@@ -1,0 +1,375 @@
+openapi: 3.0.3
+info:
+  title: garden-iot API
+  version: 1.0.0
+  description: |
+    API do front-end e dos operadores. Autenticação por JWT (claims `tenant`, `sub`, `role`).
+    O tenant vem sempre do token, nunca do caminho ou do corpo. A API nunca aciona atuador
+    diretamente: o pedido de rega passa pela política de segurança e vira um comando MQTT 5
+    (Correlation Data e Message Expiry) que o nó pode recusar (ADR 0004 e 0011).
+servers:
+  - url: http://localhost:8090
+security:
+  - bearerAuth: []
+tags:
+  - name: catalog
+  - name: telemetry
+  - name: twin
+  - name: alerts
+  - name: irrigation
+paths:
+  /healthz:
+    get:
+      summary: Liveness
+      security: []
+      responses:
+        "200": { description: ok }
+  /v1/gardens:
+    get:
+      tags: [catalog]
+      summary: Lista as hortas do tenant
+      responses:
+        "200":
+          description: hortas
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Garden" } }
+        "401": { $ref: "#/components/responses/Problem" }
+    post:
+      tags: [catalog]
+      summary: Cria horta (papel owner)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/GardenInput" }
+      responses:
+        "201":
+          description: criada
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Garden" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "409": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}:
+    get:
+      tags: [catalog]
+      summary: Detalha uma horta
+      parameters: [{ $ref: "#/components/parameters/GardenId" }]
+      responses:
+        "200":
+          description: horta
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Garden" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}/beds:
+    get:
+      tags: [catalog]
+      summary: Lista os canteiros
+      parameters: [{ $ref: "#/components/parameters/GardenId" }]
+      responses:
+        "200":
+          description: canteiros
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Bed" } }
+    post:
+      tags: [catalog]
+      summary: Cria canteiro (papel owner)
+      parameters: [{ $ref: "#/components/parameters/GardenId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/BedInput" }
+      responses:
+        "201":
+          description: criado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Bed" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}/nodes:
+    get:
+      tags: [catalog]
+      summary: Lista os nós
+      parameters: [{ $ref: "#/components/parameters/GardenId" }]
+      responses:
+        "200":
+          description: nós
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Node" } }
+    post:
+      tags: [catalog]
+      summary: Registra nó (papel owner)
+      parameters: [{ $ref: "#/components/parameters/GardenId" }]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/NodeInput" }
+      responses:
+        "201":
+          description: registrado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Node" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "422": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}/nodes/{nodeId}/readings:
+    get:
+      tags: [telemetry]
+      summary: Histórico de leituras (TimescaleDB)
+      parameters:
+        - { $ref: "#/components/parameters/GardenId" }
+        - { $ref: "#/components/parameters/NodeId" }
+        - { name: kind, in: query, schema: { type: string, example: soil_moisture_pct } }
+        - { name: from, in: query, schema: { type: string, format: date-time } }
+        - { name: to, in: query, schema: { type: string, format: date-time } }
+        - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 5000, default: 500 } }
+      responses:
+        "200":
+          description: leituras, da mais recente para a mais antiga
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Reading" } }
+        "422": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}/nodes/{nodeId}/state:
+    get:
+      tags: [twin]
+      summary: Gêmeo digital, estado desejado e reportado
+      parameters:
+        - { $ref: "#/components/parameters/GardenId" }
+        - { $ref: "#/components/parameters/NodeId" }
+      responses:
+        "200":
+          description: estado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/NodeState" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}/alerts:
+    get:
+      tags: [alerts]
+      summary: Lista alertas
+      parameters:
+        - { $ref: "#/components/parameters/GardenId" }
+        - { name: open, in: query, description: só não reconhecidos, schema: { type: boolean, default: false } }
+      responses:
+        "200":
+          description: alertas, mais recentes primeiro
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: "#/components/schemas/Alert" } }
+  /v1/gardens/{gardenId}/alerts/{alertId}/ack:
+    post:
+      tags: [alerts]
+      summary: Reconhece o alerta (owner ou operator)
+      parameters:
+        - { $ref: "#/components/parameters/GardenId" }
+        - { name: alertId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "204": { description: reconhecido }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}/nodes/{nodeId}/irrigations:
+    post:
+      tags: [irrigation]
+      summary: Pede rega manual
+      description: |
+        Exige papel owner ou operator. A política de segurança avalia limite de duração, geada,
+        vento com aspersão, reservatório e comando em aberto. Aprovado, o comando é publicado
+        em `horta/{tenant}/{horta}/{no}/cmd` (QoS 1, Correlation Data = id, Message Expiry = ttl).
+        A resposta é assíncrona: acompanhe o estado do comando.
+      parameters:
+        - { $ref: "#/components/parameters/GardenId" }
+        - { $ref: "#/components/parameters/NodeId" }
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: "#/components/schemas/IrrigationRequest" }
+      responses:
+        "202":
+          description: comando aceito e publicado
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Command" }
+        "403": { $ref: "#/components/responses/Problem" }
+        "404": { $ref: "#/components/responses/Problem" }
+        "409":
+          description: bloqueado pela política de segurança ou comando em aberto
+          content:
+            application/problem+json:
+              schema: { $ref: "#/components/schemas/PolicyProblem" }
+        "422": { $ref: "#/components/responses/Problem" }
+        "503": { $ref: "#/components/responses/Problem" }
+  /v1/gardens/{gardenId}/nodes/{nodeId}/commands/{commandId}:
+    get:
+      tags: [irrigation]
+      summary: Estado de um comando
+      parameters:
+        - { $ref: "#/components/parameters/GardenId" }
+        - { $ref: "#/components/parameters/NodeId" }
+        - { name: commandId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        "200":
+          description: comando
+          content:
+            application/json:
+              schema: { $ref: "#/components/schemas/Command" }
+        "404": { $ref: "#/components/responses/Problem" }
+  /v1/stream/readings:
+    get:
+      tags: [telemetry]
+      summary: Leituras ao vivo (Server-Sent Events)
+      description: |
+        Evento `reading` com JSON de Reading. Só entrega leituras do tenant do token.
+        Navegadores não enviam cabeçalho em EventSource: aceita também `access_token` na query.
+      parameters:
+        - { name: garden, in: query, required: true, schema: { type: string } }
+        - { name: access_token, in: query, schema: { type: string } }
+      responses:
+        "200":
+          description: fluxo SSE
+          content:
+            text/event-stream:
+              schema: { type: string }
+        "401": { $ref: "#/components/responses/Problem" }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    GardenId: { name: gardenId, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9-]{1,32}$" } }
+    NodeId: { name: nodeId, in: path, required: true, schema: { type: string, pattern: "^[a-z0-9-]{1,32}$" } }
+  responses:
+    Problem:
+      description: erro
+      content:
+        application/problem+json:
+          schema: { $ref: "#/components/schemas/Problem" }
+  schemas:
+    Problem:
+      type: object
+      required: [title, status]
+      properties:
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+    PolicyProblem:
+      allOf:
+        - { $ref: "#/components/schemas/Problem" }
+        - type: object
+          properties:
+            violations:
+              type: array
+              items:
+                type: object
+                required: [rule, reason]
+                properties:
+                  rule: { type: string, enum: [role, node_kind, max_duration, frost, wind, reservoir, open_command] }
+                  reason: { type: string }
+    GardenInput:
+      type: object
+      required: [id, name]
+      properties:
+        id: { type: string, pattern: "^[a-z0-9-]{1,32}$" }
+        name: { type: string, minLength: 1, maxLength: 80 }
+    Garden:
+      allOf:
+        - { $ref: "#/components/schemas/GardenInput" }
+        - type: object
+          required: [createdAt]
+          properties:
+            createdAt: { type: string, format: date-time }
+    BedInput:
+      type: object
+      required: [id, name, irrigation]
+      properties:
+        id: { type: string, pattern: "^[a-z0-9-]{1,32}$" }
+        name: { type: string, minLength: 1, maxLength: 80 }
+        crop: { type: string, maxLength: 80 }
+        irrigation: { type: string, enum: [drip, sprinkler] }
+    Bed:
+      allOf:
+        - { $ref: "#/components/schemas/BedInput" }
+        - type: object
+          required: [gardenId]
+          properties:
+            gardenId: { type: string }
+    NodeInput:
+      type: object
+      required: [id, kind]
+      properties:
+        id: { type: string, pattern: "^[a-z0-9-]{1,32}$" }
+        kind: { type: string, enum: [sensor, actuator] }
+        bedId: { type: string, nullable: true }
+    Node:
+      allOf:
+        - { $ref: "#/components/schemas/NodeInput" }
+        - type: object
+          required: [gardenId]
+          properties:
+            gardenId: { type: string }
+            fwVersion: { type: string }
+            lastSeenAt: { type: string, format: date-time, nullable: true }
+    Reading:
+      type: object
+      required: [nodeId, sensorId, kind, readAt, value, unit, quality]
+      properties:
+        nodeId: { type: string }
+        sensorId: { type: string }
+        kind: { type: string, example: soil_moisture_pct }
+        readAt: { type: string, format: date-time }
+        value: { type: number }
+        unit: { type: string }
+        quality: { type: string, enum: [ok, estimated, suspect] }
+    ActuatorState:
+      type: object
+      required: [valve, at]
+      properties:
+        valve: { type: string, enum: [open, closed] }
+        flowLpm: { type: number, nullable: true }
+        at: { type: string, format: date-time }
+    NodeState:
+      type: object
+      required: [nodeId, inSync]
+      properties:
+        nodeId: { type: string }
+        desired: { allOf: [{ $ref: "#/components/schemas/ActuatorState" }], nullable: true }
+        reported: { allOf: [{ $ref: "#/components/schemas/ActuatorState" }], nullable: true }
+        inSync: { type: boolean, description: desejado igual ao reportado }
+    Alert:
+      type: object
+      required: [id, severity, kind, message, raisedAt]
+      properties:
+        id: { type: string, format: uuid }
+        nodeId: { type: string, nullable: true }
+        severity: { type: string, enum: [info, warning, critical] }
+        kind: { type: string, example: frost }
+        message: { type: string }
+        raisedAt: { type: string, format: date-time }
+        acknowledgedAt: { type: string, format: date-time, nullable: true }
+    IrrigationRequest:
+      type: object
+      required: [durationSeconds]
+      properties:
+        durationSeconds: { type: integer, minimum: 1, maximum: 1800 }
+    Command:
+      type: object
+      required: [id, nodeId, action, durationSeconds, status, createdAt, expiresAt]
+      properties:
+        id: { type: string, format: uuid }
+        nodeId: { type: string }
+        action: { type: string, enum: [open_valve] }
+        durationSeconds: { type: integer }
+        status: { type: string, enum: [pending, sent, confirmed, rejected, expired, failed] }
+        requestedBy: { type: string }
+        createdAt: { type: string, format: date-time }
+        expiresAt: { type: string, format: date-time }
