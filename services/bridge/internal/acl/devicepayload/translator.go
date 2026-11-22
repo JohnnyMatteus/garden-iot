@@ -1,13 +1,14 @@
 package devicepayload
 
 import (
-	"encoding/json"
 	"fmt"
 	"strconv"
 	"strings"
+
+	brutav1 "github.com/JohnnyMatteus/garden-iot/contracts/gen/go/telemetria/bruta/v1"
 )
 
-// Registry despacha o payload para o tradutor da versão maior do firmware.
+// Registry despacha o lote para o tradutor da versão maior de firmware em fw_version.
 type Registry struct {
 	byMajor map[int]Translator
 }
@@ -24,26 +25,20 @@ func (r *Registry) Register(major int, t Translator) {
 	r.byMajor[major] = t
 }
 
-// Translate lê fw_version do payload e delega ao tradutor correspondente.
-func (r *Registry) Translate(raw []byte, cal Calibration) (Measurements, error) {
-	var head struct {
-		FWVersion string `json:"fw_version"`
-	}
-	if err := json.Unmarshal(raw, &head); err != nil {
-		return Measurements{}, fmt.Errorf("%w: %v", ErrInvalidPayload, err)
-	}
-	if head.FWVersion == "" {
+// Translate escolhe o tradutor por msg.FwVersion e converte msg.Payload.
+func (r *Registry) Translate(msg *brutav1.TelemetriaBruta, cals CalibrationSource) (Measurements, error) {
+	if msg == nil || msg.GetFwVersion() == "" {
 		return Measurements{}, fmt.Errorf("%w: fw_version ausente", ErrInvalidPayload)
 	}
-	major, ok := parseMajor(head.FWVersion)
+	major, ok := parseMajor(msg.GetFwVersion())
 	if !ok {
-		return Measurements{}, &UnsupportedFirmwareError{Version: head.FWVersion}
+		return Measurements{}, &UnsupportedFirmwareError{Version: msg.GetFwVersion()}
 	}
 	t, ok := r.byMajor[major]
 	if !ok {
-		return Measurements{}, &UnsupportedFirmwareError{Version: head.FWVersion}
+		return Measurements{}, &UnsupportedFirmwareError{Version: msg.GetFwVersion()}
 	}
-	return t.Translate(raw, cal)
+	return t.Translate(msg, cals)
 }
 
 func parseMajor(version string) (int, bool) {

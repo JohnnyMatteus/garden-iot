@@ -6,7 +6,7 @@
 #include "unity.h"
 
 #define SECTORS 3
-#define SECTOR_SIZE 1024u /* 4 slots por setor: 12 slots */
+#define SECTOR_SIZE 2048u /* 4 slots por setor: 12 slots */
 
 static uint8_t flash[SECTORS * SECTOR_SIZE];
 static ob_storage_t st;
@@ -101,7 +101,7 @@ static void test_buffer_cheio_descarta_o_mais_antigo_e_conta(void)
 static void test_slot_corrompido_e_ignorado(void)
 {
     push_n(1, 3);
-    flash[256 + 20] ^= 0x01; /* corrompe o payload do 2o slot */
+    flash[512 + 20] ^= 0x01; /* corrompe o payload do 2o slot */
     ob_t again;
     TEST_ASSERT_EQUAL(OB_OK, ob_init(&again, &st));
     TEST_ASSERT_EQUAL(2, ob_count(&again));

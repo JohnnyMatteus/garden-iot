@@ -14,7 +14,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define OB_SLOT_SIZE 256u
+#define OB_SLOT_SIZE 512u
 #define OB_HEADER_SIZE 16u
 #define OB_MAX_PAYLOAD (OB_SLOT_SIZE - OB_HEADER_SIZE)
 

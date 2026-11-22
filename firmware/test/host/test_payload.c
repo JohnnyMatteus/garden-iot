@@ -33,7 +33,7 @@ static void read_golden(const char *name, char *out, size_t cap)
 static void test_lote_completo_confere_com_golden(void)
 {
     telemetry_batch_t b = full_batch();
-    char buf[256], golden[256];
+    char buf[512], golden[512];
     int n = telemetry_payload_encode(&b, buf, sizeof buf);
     TEST_ASSERT_GREATER_THAN(0, n);
     read_golden("completo.json", golden, sizeof golden);
@@ -45,7 +45,7 @@ static void test_sensor_ausente_omite_campo_e_leva_descartes(void)
     telemetry_batch_t b = full_batch();
     b.readings.has_air = false;
     b.dropped = 3;
-    char buf[256], golden[256];
+    char buf[512], golden[512];
     TEST_ASSERT_GREATER_THAN(0, telemetry_payload_encode(&b, buf, sizeof buf));
     read_golden("sem_ar_com_descartes.json", golden, sizeof golden);
     TEST_ASSERT_EQUAL_STRING(golden, buf);
@@ -63,9 +63,9 @@ static void test_cabe_no_slot_do_buffer(void)
     telemetry_batch_t b = full_batch();
     b.dropped = 4294967295u;
     b.seq = 4294967295u;
-    char buf[256];
+    char buf[512];
     int n = telemetry_payload_encode(&b, buf, sizeof buf);
-    TEST_ASSERT_TRUE(n > 0 && n <= 240);
+    TEST_ASSERT_TRUE(n > 0 && n <= 496);
 }
 
 int main(void)

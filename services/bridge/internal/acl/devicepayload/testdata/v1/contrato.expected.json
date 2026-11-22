@@ -1,0 +1,8 @@
+{"tenant_id":"t1","garden_id":"h1","node_id":"no-01","fw_version":"1.0.0","sequence":42,
+ "read_at":"2024-11-21T11:53:20Z","dropped":0,
+ "readings":[
+  {"sensor_id":"soil-1","quantity":"soil_moisture_vwc_pct","value":50,"quality":"medido"},
+  {"sensor_id":"air-1","quantity":"air_temp_c","value":23.5,"quality":"medido"},
+  {"sensor_id":"air-1","quantity":"air_humidity_pct","value":61.2,"quality":"medido"},
+  {"sensor_id":"light-1","quantity":"illuminance_lux","value":42000,"quality":"medido"},
+  {"sensor_id":"light-1","quantity":"solar_radiation_w_m2","value":331.8,"quality":"estimado"}]}
