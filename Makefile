@@ -3,7 +3,7 @@ SHELL := /bin/bash
 
 COMPOSE ?= docker compose
 PROFILES ?= --profile core --profile observability
-GO_MODULES := contracts services/bridge services/irrigation tools/fleet-sim
+GO_MODULES := contracts services/bridge services/api services/irrigation tools/fleet-sim
 BUF ?= buf
 
 -include .env
@@ -70,6 +70,15 @@ test-integration: ## Integração (exige `make up`): ACL do broker e RLS do banc
 	@for m in $(GO_MODULES); do \
 	  if [ -f $$m/go.mod ]; then (cd $$m && go test -tags=integration ./... -count=1) || exit 1; fi; \
 	done
+
+
+.PHONY: api
+api: ## Roda a API local (exige make up)
+	cd services/api && go run ./cmd/api
+
+.PHONY: token
+token: ## Token de dev: make token TENANT=demo ROLE=operator
+	@cd services/api && go run ./cmd/devtoken $(or $(TENANT),demo) $(or $(ROLE),operator)
 
 .PHONY: contracts-lint
 contracts-lint: ## buf lint

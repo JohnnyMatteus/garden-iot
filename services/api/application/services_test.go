@@ -32,7 +32,9 @@ func (c fakeCatalog) GetNode(_ context.Context, _, g, n string) (domain.Node, er
 	}
 	return c.node, nil
 }
-func (c fakeCatalog) GetBed(context.Context, string, string, string) (domain.Bed, error) { return c.bed, nil }
+func (c fakeCatalog) GetBed(context.Context, string, string, string) (domain.Bed, error) {
+	return c.bed, nil
+}
 
 type fakeReadings struct {
 	application.ReadingStore
@@ -63,7 +65,9 @@ type fakeCommands struct {
 	statuses map[string]domain.CommandStatus
 }
 
-func (f *fakeCommands) HasOpen(context.Context, string, string, string) (bool, error) { return f.open, nil }
+func (f *fakeCommands) HasOpen(context.Context, string, string, string) (bool, error) {
+	return f.open, nil
+}
 func (f *fakeCommands) Create(_ context.Context, _ string, c domain.Command) error {
 	f.created = append(f.created, c)
 	return nil
