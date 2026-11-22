@@ -24,6 +24,7 @@ jobs:
       bridge: ${{ steps.f.outputs.bridge }}
       irrigation: ${{ steps.f.outputs.irrigation }}
       api: ${{ steps.f.outputs.api }}
+      web: ${{ steps.f.outputs.web }}
       e2e: ${{ steps.f.outputs.e2e }}
       fleet_sim: ${{ steps.f.outputs.fleet_sim }}
       contracts: ${{ steps.f.outputs.contracts }}
@@ -50,6 +51,8 @@ jobs:
             api:
               - 'services/api/**'
               - 'contracts/**'
+            web:
+              - 'web/**'
             irrigation:
               - 'services/irrigation/**'
               - 'contracts/**'
@@ -265,7 +268,7 @@ jobs:
   # Único check obrigatório: jobs pulados por paths-filter contam como sucesso.
   ci-ok:
     if: always()
-    needs: [changes, contracts, firmware-host, firmware, bridge, bridge-integration, e2e, api, irrigation, fleet-sim, infra]
+    needs: [changes, contracts, firmware-host, firmware, bridge, bridge-integration, e2e, api, web, irrigation, fleet-sim, infra]
     runs-on: ubuntu-latest
     steps:
       - name: Falha se algum job falhou ou foi cancelado
@@ -273,3 +276,25 @@ jobs:
           if [[ "${{ contains(needs.*.result, 'failure') || contains(needs.*.result, 'cancelled') }}" == "true" ]]; then
             echo "há job com falha"; exit 1
           fi
+
+  web:
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - run: npm ci
+        working-directory: web
+      - run: npm run lint
+        working-directory: web
+      - run: npm run typecheck
+        working-directory: web
+      - run: npm test
+        working-directory: web
+      - run: npm run build
+        working-directory: web

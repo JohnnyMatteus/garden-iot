@@ -21,6 +21,14 @@ Hortas domésticas e pequenos produtores regam no "olhômetro": água demais ou 
 | API REST e SSE (`services/api`) | em andamento |
 | Irrigação (ET₀, balanço hídrico, saga), comandos, IA | M2 a M5, ver design doc |
 
+## Interface
+
+Front-end em `web/` (Vue 3, Vuetify 3, TanStack Query, zod), identidade "Cota": a horta como planta baixa, com cada canteiro preenchido pelo nível de umidade, hachura no déficit até a faixa ideal e símbolo de válvula com traço de fluxo na rega em curso. Telas: mapa da horta, detalhe do canteiro, regas e comandos (desejado × reportado) e dispositivos.
+
+- `make api` em um terminal e `make web-dev` em outro (Vite em http://localhost:5173, `/api` vai para a API em :8090). O login pede um token: `make token TENANT=demo ROLE=operator`.
+- No compose, o serviço `web` (profile `core`) serve o build por nginx em http://localhost:8088 e repassa `/api` para `WEB_API_UPSTREAM` (padrão: a API no host).
+- Limite conhecido: o balanço mostrado é o observado (umidade medida e rega aplicada); o balanço FAO-56 depende de o planejador de irrigação persistir o déficit.
+
 ## Arquitetura
 
 ```mermaid

@@ -265,6 +265,32 @@ services:
     read_only: true
     networks: [garden]
 
+  web:
+    <<: *hardening
+    build:
+      context: web
+    profiles: [core]
+    environment:
+      # A API roda no host (`make api`) até ganhar container próprio.
+      WEB_API_UPSTREAM: ${WEB_API_UPSTREAM:-http://host.docker.internal:8090}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    ports:
+      - "${WEB_PORT:-8088}:8080"
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://127.0.0.1:8080/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 5s
+    mem_limit: 64m
+    cap_drop: [ALL]
+    read_only: true
+    tmpfs:
+      - /tmp
+      - /etc/nginx/conf.d
+    networks: [garden]
+
   grafana:
     <<: *hardening
     image: grafana/grafana:11.3.0

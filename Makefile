@@ -76,6 +76,10 @@ test-integration: ## Integração (exige `make up`): ACL do broker e RLS do banc
 api: ## Roda a API local (exige make up)
 	cd services/api && go run ./cmd/api
 
+.PHONY: web-dev
+web-dev: ## Front-end em modo dev (Vite em :5173, /api vai para a API em :8090)
+	cd web && npm ci --no-audit --no-fund && npm run dev
+
 .PHONY: token
 token: ## Token de dev: make token TENANT=demo ROLE=operator
 	@cd services/api && go run ./cmd/devtoken $(or $(TENANT),demo) $(or $(ROLE),operator)
