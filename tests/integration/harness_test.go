@@ -11,13 +11,17 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strings"
 	"testing"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -44,7 +48,9 @@ func repoRoot(t *testing.T) string {
 	return root
 }
 
-func pkiDir(t *testing.T) string { return env("IT_PKI_DIR", filepath.Join(repoRoot(t), "infra/pki/out")) }
+func pkiDir(t *testing.T) string {
+	return env("IT_PKI_DIR", filepath.Join(repoRoot(t), "infra/pki/out"))
+}
 
 func randomID(prefix string) string {
 	b := make([]byte, 3)
@@ -99,6 +105,19 @@ func (p *process) wait(t *testing.T) {
 
 type pipeline struct{ pki string }
 
+// O ACL só permite a assinatura compartilhada $share/bridge, então todo bridge do ambiente (inclusive o
+// container do compose) divide o mesmo grupo. A sessão MQTT dura 1h depois do desligamento (é o que
+// protege as mensagens em QoS 1 num reinício). Com um client id novo por teste, a sessão do teste
+// anterior ficava no EMQX como assinante do grupo e retinha a sua parcela das mensagens sem que
+// ninguém as lesse. Um client id fixo faz o bridge do próximo teste retomar a mesma sessão.
+const bridgeClientID = "bridge-integration-test"
+
+// Endereços fixos para a leitura de métricas no diagnóstico de falha.
+const (
+	bridgeHTTP  = "127.0.0.1:19102"
+	persistHTTP = "127.0.0.1:19103"
+)
+
 // startPipeline sobe bridge e persist com um grupo de consumo novo.
 func startPipeline(t *testing.T) pipeline {
 	t.Helper()
@@ -110,14 +129,14 @@ func startPipeline(t *testing.T) pipeline {
 	persistBin := build(t, "services/bridge", "./cmd/persist")
 
 	start(t, bridgeBin, []string{
-		"BRIDGE_MQTT_URL=" + mqttURL, "BRIDGE_MQTT_CLIENT_ID=" + randomID("bridge-"), "BRIDGE_MQTT_SHARE_GROUP=bridge",
+		"BRIDGE_MQTT_URL=" + mqttURL, "BRIDGE_MQTT_CLIENT_ID=" + bridgeClientID, "BRIDGE_MQTT_SHARE_GROUP=bridge",
 		"BRIDGE_TLS_CA=" + filepath.Join(pki, "ca.pem"), "BRIDGE_TLS_CERT=" + filepath.Join(pki, "bridge.pem"),
 		"BRIDGE_TLS_KEY=" + filepath.Join(pki, "bridge.key"),
-		"BRIDGE_KAFKA_BROKERS=" + kafkaAddr, "BRIDGE_SCHEMA_REGISTRY_URL=" + registry, "BRIDGE_HTTP_ADDR=127.0.0.1:0",
+		"BRIDGE_KAFKA_BROKERS=" + kafkaAddr, "BRIDGE_SCHEMA_REGISTRY_URL=" + registry, "BRIDGE_HTTP_ADDR=" + bridgeHTTP,
 	})
 	start(t, persistBin, []string{
 		"PERSIST_KAFKA_BROKERS=" + kafkaAddr, "PERSIST_KAFKA_GROUP=" + randomID("persist-"),
-		"PERSIST_DATABASE_URL=" + writerDSN(), "PERSIST_HTTP_ADDR=127.0.0.1:0",
+		"PERSIST_DATABASE_URL=" + writerDSN(), "PERSIST_HTTP_ADDR=" + persistHTTP,
 	})
 	time.Sleep(3 * time.Second) // tempo para as assinaturas ficarem ativas
 	return pipeline{pki: pki}
@@ -156,8 +175,54 @@ const readingsPerBatch = 6
 
 func eventuallyCount(t *testing.T, pl *pgxpool.Pool, tenant string, want int, within time.Duration) {
 	t.Helper()
-	require.Eventually(t, func() bool {
+	ok := assert.Eventually(t, func() bool {
 		n, err := countReadings(context.Background(), pl, tenant)
 		return err == nil && n == want
 	}, within, 250*time.Millisecond, "leituras de %s no banco", tenant)
+	if !ok {
+		diagnose(t, pl, tenant, want)
+		t.FailNow()
+	}
+}
+
+// diagnose diz onde as mensagens pararam: banco, bridge (MQTT para Kafka), persist (Kafka para banco)
+// e assinantes no EMQX. Não imprime ambiente, credenciais nem chaves.
+func diagnose(t *testing.T, pl *pgxpool.Pool, tenant string, want int) {
+	t.Helper()
+	n, err := countReadings(context.Background(), pl, tenant)
+	t.Logf("diagnóstico: banco tem %d de %d leituras esperadas de %s (erro: %v)", n, want, tenant, err)
+	t.Logf("diagnóstico: métricas do bridge:\n%s", metricLines(bridgeHTTP, "bridge_messages_", "bridge_processing_"))
+	t.Logf("diagnóstico: métricas do persist:\n%s", metricLines(persistHTTP, "persist_"))
+	root := repoRoot(t)
+	for _, args := range [][]string{{"subscriptions", "list"}, {"clients", "list"}} {
+		cmd := append([]string{"compose", "--project-directory", root, "--profile", "core", "exec", "-T", "emqx", "/opt/emqx/bin/emqx", "ctl"}, args...)
+		out, _ := exec.Command("docker", cmd...).CombinedOutput()
+		t.Logf("diagnóstico: emqx ctl %s:\n%s", args[0], limit(string(out), 3000))
+	}
+}
+
+func metricLines(addr string, prefixes ...string) string {
+	c := &http.Client{Timeout: 3 * time.Second}
+	resp, err := c.Get("http://" + addr + "/metrics")
+	if err != nil {
+		return "indisponível: " + err.Error()
+	}
+	defer func() { _ = resp.Body.Close() }()
+	body, _ := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	var keep []string
+	for _, l := range strings.Split(string(body), "\n") {
+		for _, p := range prefixes {
+			if strings.HasPrefix(l, p) {
+				keep = append(keep, l)
+			}
+		}
+	}
+	return limit(strings.Join(keep, "\n"), 3000)
+}
+
+func limit(s string, n int) string {
+	if len(s) > n {
+		return s[:n] + "..."
+	}
+	return s
 }
