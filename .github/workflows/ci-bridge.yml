@@ -1,0 +1,56 @@
+name: CI
+
+# Testes do pipeline de telemetria: unitários da bridge, da persistência e do simulador, e a
+# integração ponta a ponta (M1-13) num job próprio contra o ambiente local do compose.
+on:
+  push:
+    branches: ["feat/**"]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: |
+            services/bridge/go.sum
+            tools/fleet-sim/go.sum
+            tests/integration/go.sum
+      - name: Testes de services/bridge
+        run: cd services/bridge && go vet ./... && go test -race -count=1 ./...
+      - name: Testes de tools/fleet-sim
+        run: cd tools/fleet-sim && go vet ./... && go test -race -count=1 ./...
+      - name: Compila o teste de integração
+        run: cd tests/integration && go vet -tags integration ./...
+
+  integration:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-go@v5
+        with:
+          go-version: "1.26"
+          cache-dependency-path: |
+            services/bridge/go.sum
+            tools/fleet-sim/go.sum
+            tests/integration/go.sum
+      - name: Sobe o ambiente (core)
+        run: |
+          cp .env.example .env
+          docker compose --profile core up -d --remove-orphans
+          infra/wait-healthy.sh 300
+      - name: Integração ponta a ponta
+        run: cd tests/integration && go test -tags integration -count=1 -timeout 15m -v ./...
+      - name: Logs do ambiente em caso de falha
+        if: failure()
+        run: docker compose --profile core logs --no-color --tail 200
+      - name: Derruba o ambiente
+        if: always()
+        run: docker compose --profile core down -v

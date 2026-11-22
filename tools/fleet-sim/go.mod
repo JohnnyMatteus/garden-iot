@@ -1,6 +1,6 @@
 module github.com/JohnnyMatteus/garden-iot/tools/fleet-sim
 
-go 1.27.1
+go 1.24.0
 
 require (
 	github.com/eclipse/paho.golang v0.23.0

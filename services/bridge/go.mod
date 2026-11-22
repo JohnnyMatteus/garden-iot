@@ -1,6 +1,6 @@
 module github.com/JohnnyMatteus/garden-iot/services/bridge
 
-go 1.27.1
+go 1.26.0
 
 require (
 	github.com/JohnnyMatteus/garden-iot/contracts v0.0.0

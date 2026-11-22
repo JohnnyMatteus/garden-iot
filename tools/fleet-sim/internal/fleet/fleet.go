@@ -41,8 +41,9 @@ type Config struct {
 	Speed         float64       // 1 = tempo real; N = N vezes mais rápido
 	Ticks         int
 	Start         time.Time
-	DuplicateRate float64 // probabilidade de republicar um lote já enviado
-	ReorderRate   float64 // probabilidade de segurar um lote e enviá-lo depois do seguinte
+	DuplicateRate float64       // probabilidade de republicar um lote já enviado
+	ReorderRate   float64       // probabilidade de segurar um lote e enviá-lo depois do seguinte
+	RetryFor      time.Duration // por quanto tempo repetir uma publicação que falha (broker fora)
 }
 
 type Fleet struct {
@@ -140,11 +141,29 @@ func (f *Fleet) runNode(ctx context.Context, index int, n NodeSpec) error {
 }
 
 func (f *Fleet) send(ctx context.Context, link Link, n NodeSpec, b generator.Batch, inj *rand.Rand) error {
-	if err := link.Publish(ctx, n.Topic("telemetria"), b.Payload); err != nil {
+	if err := f.publish(ctx, link, n.Topic("telemetria"), b.Payload); err != nil {
 		return err
 	}
 	if inj.Float64() < f.cfg.DuplicateRate {
-		return link.Publish(ctx, n.Topic("telemetria"), b.Payload)
+		return f.publish(ctx, link, n.Topic("telemetria"), b.Payload)
 	}
 	return nil
+}
+
+// publish repete enquanto o broker estiver fora (a conexão se refaz sozinha), como o buffer
+// offline do firmware: o lote só é dado como enviado quando o broker confirma.
+func (f *Fleet) publish(ctx context.Context, link Link, topic string, payload []byte) error {
+	deadline := time.Now().Add(f.cfg.RetryFor)
+	for {
+		err := link.Publish(ctx, topic, payload)
+		if err == nil || ctx.Err() != nil || time.Now().After(deadline) {
+			return err
+		}
+		f.log.Warn("publicação falhou, nova tentativa", "topico", topic, "erro", err)
+		select {
+		case <-ctx.Done():
+			return ctx.Err()
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
 }

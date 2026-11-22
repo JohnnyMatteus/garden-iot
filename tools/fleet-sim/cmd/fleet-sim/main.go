@@ -40,6 +40,7 @@ func run() error {
 		seed     = flag.Uint64("seed", 1, "semente; a mesma semente gera as mesmas leituras")
 		dup      = flag.Float64("duplicates", 0, "probabilidade de republicar um lote (0 a 1)")
 		reorder  = flag.Float64("reorder", 0, "probabilidade de enviar um lote depois do seguinte (0 a 1)")
+		retry    = flag.Duration("retry", time.Minute, "por quanto tempo repetir uma publicação que falha")
 		list     = flag.Bool("list-profiles", false, "lista os perfis e sai")
 	)
 	flag.Parse()
@@ -84,7 +85,7 @@ func run() error {
 	log := slog.New(slog.NewTextHandler(os.Stderr, nil))
 	f := fleet.New(fleet.Config{
 		Seed: *seed, Interval: *interval, Speed: *speed, Ticks: *ticks, Start: start,
-		DuplicateRate: *dup, ReorderRate: *reorder,
+		DuplicateRate: *dup, ReorderRate: *reorder, RetryFor: *retry,
 	}, dialer, log)
 	log.Info("simulação iniciada", "nos", *nodes, "ticks", *ticks, "perfis", *profiles)
 	return f.Run(ctx, specs)

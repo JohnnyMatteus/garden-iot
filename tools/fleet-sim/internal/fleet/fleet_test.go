@@ -108,3 +108,30 @@ func TestDuplicatesAndReorderAreInjected(t *testing.T) {
 	sort.Ints(keys)
 	assert.Equal(t, 1, keys[0])
 }
+
+type flaky struct {
+	link
+	fails int
+}
+
+func (f *flaky) Publish(ctx context.Context, topic string, payload []byte) error {
+	if f.fails > 0 {
+		f.fails--
+		return context.DeadlineExceeded
+	}
+	return f.link.Publish(ctx, topic, payload)
+}
+
+type flakyDialer struct{ f *flaky }
+
+func (d flakyDialer) Dial(context.Context, string, string, []byte) (fleet.Link, error) {
+	return d.f, nil
+}
+
+func TestRetriesPublishWhileBrokerIsDown(t *testing.T) {
+	rec := &recorder{}
+	f := &flaky{link: link{rec}, fails: 3}
+	cfg := fleet.Config{Seed: 1, Ticks: 2, Interval: time.Minute, Speed: 1e9, Start: time.Unix(1732190000, 0), RetryFor: 10 * time.Second}
+	require.NoError(t, fleet.New(cfg, flakyDialer{f}, slog.New(slog.NewTextHandler(io.Discard, nil))).Run(context.Background(), specs(t, "sunny", 1)))
+	assert.Len(t, rec.msgs, 2)
+}
