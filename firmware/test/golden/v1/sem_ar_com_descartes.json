@@ -1,1 +1,1 @@
-{"fw_version":"1.0.0","seq":42,"ts":1732190000,"dropped":3,"soil_adc":2100,"lux":12000.0,"water_level_ok":true}
+{"fw":"1.0.0","seq":42,"ts":1732190000,"dropped":3,"r":[{"id":"soil-1","k":"soil_adc","v":2100},{"id":"light-1","k":"light_lux","v":12000.0},{"id":"water-1","k":"water_level_ok","v":1}]}

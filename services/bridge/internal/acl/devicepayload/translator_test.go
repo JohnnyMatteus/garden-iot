@@ -7,18 +7,30 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	brutav1 "github.com/JohnnyMatteus/garden-iot/contracts/gen/go/telemetria/bruta/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
-	"github.com/johnnysantos/garden-iot/services/bridge/internal/acl/devicepayload"
+	"github.com/JohnnyMatteus/garden-iot/services/bridge/internal/acl/devicepayload"
 )
 
-// Os payloads de entrada v1 são os mesmos que os testes do firmware geram (golden em C), então
-// uma mudança de formato no firmware quebra este contrato.
+// Os payloads golden do firmware (gerados pelos testes em C) entram aqui como corpo do lote:
+// mudar o formato num lado sem o outro quebra este contrato.
 const firmwareGoldenDir = "../../../../../firmware/test/golden/v1"
 
-var cal = devicepayload.Calibration{SoilDry: 3000, SoilSaturated: 1200}
+var cals = devicepayload.StaticCalibrations{
+	"no-01/soil-1": {SoilDry: 3000, SoilSaturated: 1200},
+}
+
+func envelope(fw string, payload string) *brutav1.TelemetriaBruta {
+	return &brutav1.TelemetriaBruta{
+		TenantId: "t1", GardenId: "h1", NodeId: "no-01", Sequence: 42, FwVersion: fw,
+		Payload: []byte(payload),
+	}
+}
 
 func TestContratoPorVersao(t *testing.T) {
 	inputs, err := filepath.Glob("testdata/v1/*.input.json")
@@ -30,12 +42,15 @@ func TestContratoPorVersao(t *testing.T) {
 
 	reg := devicepayload.NewRegistry()
 	for _, in := range inputs {
-		name := strings.TrimSuffix(filepath.Base(in), ".json")
-		name = strings.TrimSuffix(name, ".input")
+		name := strings.TrimSuffix(strings.TrimSuffix(filepath.Base(in), ".json"), ".input")
 		t.Run(name, func(t *testing.T) {
 			raw, err := os.ReadFile(in)
 			require.NoError(t, err)
-			got, err := reg.Translate(raw, cal)
+			msg := &brutav1.TelemetriaBruta{
+				TenantId: "t1", GardenId: "h1", NodeId: "no-01", Sequence: 42, FwVersion: "1.0.0",
+				ReadAt: timestamppb.New(time.Unix(1732190000, 0)), Payload: raw,
+			}
+			got, err := reg.Translate(msg, cals)
 			require.NoError(t, err)
 
 			want, err := os.ReadFile(filepath.Join("testdata/v1", name+".expected.json"))
@@ -48,40 +63,48 @@ func TestContratoPorVersao(t *testing.T) {
 }
 
 func TestUmidadeDoSoloCalibrada(t *testing.T) {
-	m := translate(t, `{"fw_version":"1.0.0","seq":1,"ts":1732190000,"soil_adc":2100}`)
-	require.NotNil(t, m.SoilMoistureVWC)
-	assert.InDelta(t, 50, m.SoilMoistureVWC.Value, 1e-9)
-	assert.Equal(t, devicepayload.QualityMeasured, m.SoilMoistureVWC.Quality)
+	m := translate(t, `{"ts":1732190000,"r":[{"id":"soil-1","k":"soil_adc","v":2100}]}`)
+	require.Len(t, m.Readings, 1)
+	assert.Equal(t, devicepayload.SoilMoistureVWC, m.Readings[0].Quantity)
+	assert.InDelta(t, 50, m.Readings[0].Value, 1e-9)
+	assert.Equal(t, devicepayload.QualityMeasured, m.Readings[0].Quality)
 }
 
 func TestUmidadeForaDaFaixaSaturaESinalizaSuspeito(t *testing.T) {
-	m := translate(t, `{"fw_version":"1.0.0","seq":1,"ts":1732190000,"soil_adc":4095}`)
-	assert.Equal(t, 0.0, m.SoilMoistureVWC.Value)
-	assert.Equal(t, devicepayload.QualitySuspect, m.SoilMoistureVWC.Quality)
+	m := translate(t, `{"ts":1,"r":[{"id":"soil-1","k":"soil_adc","v":4095}]}`)
+	assert.Equal(t, 0.0, m.Readings[0].Value)
+	assert.Equal(t, devicepayload.QualitySuspect, m.Readings[0].Quality)
 
-	m = translate(t, `{"fw_version":"1.0.0","seq":1,"ts":1732190000,"soil_adc":1190}`)
-	assert.Equal(t, devicepayload.QualityMeasured, m.SoilMoistureVWC.Quality, "dentro da margem")
-	assert.Equal(t, 100.0, m.SoilMoistureVWC.Value)
+	m = translate(t, `{"ts":1,"r":[{"id":"soil-1","k":"soil_adc","v":1190}]}`)
+	assert.Equal(t, devicepayload.QualityMeasured, m.Readings[0].Quality, "dentro da margem")
+	assert.Equal(t, 100.0, m.Readings[0].Value)
 }
 
 func TestLuzViraRadiacaoEstimada(t *testing.T) {
-	m := translate(t, `{"fw_version":"1.0.0","seq":1,"ts":1732190000,"lux":10000}`)
-	require.NotNil(t, m.SolarRadiation)
-	assert.InDelta(t, 79, m.SolarRadiation.Value, 1e-9)
-	assert.Equal(t, devicepayload.QualityEstimated, m.SolarRadiation.Quality)
-	assert.Equal(t, devicepayload.QualityMeasured, m.IlluminanceLux.Quality)
+	m := translate(t, `{"ts":1,"r":[{"id":"light-1","k":"light_lux","v":10000}]}`)
+	require.Len(t, m.Readings, 2)
+	assert.Equal(t, devicepayload.IlluminanceLux, m.Readings[0].Quantity)
+	assert.Equal(t, devicepayload.QualityMeasured, m.Readings[0].Quality)
+	assert.Equal(t, devicepayload.SolarRadiation, m.Readings[1].Quantity)
+	assert.InDelta(t, 79, m.Readings[1].Value, 1e-9)
+	assert.Equal(t, devicepayload.QualityEstimated, m.Readings[1].Quality)
 }
 
 func TestArForaDaFaixaFisicaEhSuspeito(t *testing.T) {
-	m := translate(t, `{"fw_version":"1.0.0","seq":1,"ts":1732190000,"air_temp_c":120,"air_rh_pct":55}`)
-	assert.Equal(t, devicepayload.QualitySuspect, m.AirTempC.Quality)
-	assert.Equal(t, devicepayload.QualityMeasured, m.AirHumidityPct.Quality)
+	m := translate(t, `{"ts":1,"r":[{"id":"air-1","k":"air_temp_c","v":120},{"id":"air-1","k":"air_rh_pct","v":55}]}`)
+	assert.Equal(t, devicepayload.QualitySuspect, m.Readings[0].Quality)
+	assert.Equal(t, devicepayload.QualityMeasured, m.Readings[1].Quality)
+}
+
+func TestGrandezaDesconhecidaEIgnorada(t *testing.T) {
+	m := translate(t, `{"ts":1,"r":[{"id":"wind-1","k":"wind_ms","v":3}],"extra":true}`)
+	assert.Empty(t, m.Readings)
 }
 
 func TestVersaoDeFirmwareDesconhecida(t *testing.T) {
 	reg := devicepayload.NewRegistry()
 	for _, v := range []string{"2.0.0", "0.9.1", "abc"} {
-		_, err := reg.Translate([]byte(`{"fw_version":"`+v+`","seq":1,"ts":1}`), cal)
+		_, err := reg.Translate(envelope(v, `{"ts":1,"r":[]}`), cals)
 		var unsupported *devicepayload.UnsupportedFirmwareError
 		require.True(t, errors.As(err, &unsupported), v)
 		assert.Equal(t, v, unsupported.Version)
@@ -90,8 +113,8 @@ func TestVersaoDeFirmwareDesconhecida(t *testing.T) {
 }
 
 func TestFirmwareAntigoContinuaAceito(t *testing.T) {
-	m := translate(t, `{"fw_version":"1.7.3","seq":9,"ts":1732190000,"dropped":2}`)
-	assert.Equal(t, uint32(9), m.Sequence)
+	m := translate2(t, "1.7.3", `{"ts":1,"dropped":2,"r":[]}`)
+	assert.Equal(t, uint64(42), m.Sequence)
 	assert.Equal(t, uint32(2), m.Dropped)
 }
 
@@ -99,28 +122,42 @@ func TestPayloadInvalido(t *testing.T) {
 	reg := devicepayload.NewRegistry()
 	for name, raw := range map[string]string{
 		"json quebrado":  `{`,
-		"sem fw_version": `{"seq":1,"ts":1}`,
-		"sem seq":        `{"fw_version":"1.0.0","ts":1}`,
-		"sem timestamp":  `{"fw_version":"1.0.0","seq":1,"ts":0}`,
-		"tipo errado":    `{"fw_version":"1.0.0","seq":"a","ts":1}`,
+		"tipo errado":    `{"ts":"a"}`,
+		"leitura sem v":  `{"ts":1,"r":[{"id":"air-1","k":"air_temp_c"}]}`,
+		"leitura sem id": `{"ts":1,"r":[{"k":"air_temp_c","v":1}]}`,
 	} {
 		t.Run(name, func(t *testing.T) {
-			_, err := reg.Translate([]byte(raw), cal)
+			_, err := reg.Translate(envelope("1.0.0", raw), cals)
 			require.ErrorIs(t, err, devicepayload.ErrInvalidPayload)
 		})
 	}
+	_, err := reg.Translate(&brutav1.TelemetriaBruta{FwVersion: "1.0.0", Payload: []byte(`{"ts":0,"r":[]}`)}, cals)
+	require.ErrorIs(t, err, devicepayload.ErrInvalidPayload, "sem timestamp")
+	_, err = reg.Translate(&brutav1.TelemetriaBruta{Payload: []byte(`{}`)}, cals)
+	require.ErrorIs(t, err, devicepayload.ErrInvalidPayload, "sem fw_version")
 }
 
-func TestCalibracaoInvalida(t *testing.T) {
+func TestCalibracao(t *testing.T) {
 	reg := devicepayload.NewRegistry()
-	_, err := reg.Translate([]byte(`{"fw_version":"1.0.0","seq":1,"ts":1,"soil_adc":2000}`),
-		devicepayload.Calibration{SoilDry: 1200, SoilSaturated: 3000})
+	body := `{"ts":1,"r":[{"id":"soil-1","k":"soil_adc","v":2000}]}`
+
+	_, err := reg.Translate(envelope("1.0.0", body), devicepayload.StaticCalibrations{})
+	require.ErrorIs(t, err, devicepayload.ErrCalibrationMissing)
+
+	_, err = reg.Translate(envelope("1.0.0", body), devicepayload.StaticCalibrations{
+		"no-01/soil-1": {SoilDry: 1200, SoilSaturated: 3000}})
 	require.ErrorIs(t, err, devicepayload.ErrInvalidCalibration)
 }
 
-func translate(t *testing.T, raw string) devicepayload.Measurements {
+func translate(t *testing.T, payload string) devicepayload.Measurements {
+	return translate2(t, "1.0.0", payload)
+}
+
+func translate2(t *testing.T, fw, payload string) devicepayload.Measurements {
 	t.Helper()
-	m, err := devicepayload.NewRegistry().Translate([]byte(raw), cal)
+	msg := envelope(fw, payload)
+	msg.ReadAt = nil // o ts do corpo vale quando a bridge não preencheu read_at
+	m, err := devicepayload.NewRegistry().Translate(msg, cals)
 	require.NoError(t, err)
 	return m
 }
