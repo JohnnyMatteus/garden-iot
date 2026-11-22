@@ -27,6 +27,8 @@ base="$out/$tenant-$horta-$no"
 if $revoke; then
   serial=$(openssl x509 -in "$base.pem" -noout -serial | cut -d= -f2 | sed 's/../&:/g; s/:$//')
   vault_cli write pki/revoke serial_number="$serial" >/dev/null
+  # Com auto_rebuild=true revogar não regenera a CRL: sem isto o certificado valeria até o rebuild periódico.
+  vault_cli read pki/crl/rotate >/dev/null
   echo "revogado: $cn (serial $serial)"
   exit 0
 fi

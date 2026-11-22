@@ -24,5 +24,6 @@ O design doc exige mTLS por dispositivo e ACL por dispositivo, mas não define o
 ## Consequências
 
 - Revogar vale no próximo refresh da CRL, não instantaneamente (janela de até 1 minuto local).
+- Com `auto_rebuild=true` (necessário para a CRL não expirar) o Vault não regenera a CRL ao revogar. Toda revogação precisa ser seguida de `pki/crl/rotate`, como faz `infra/vault/provision.sh --revoke`; revogar por outro caminho sem girar só vale no rebuild periódico (até cerca de 23 h).
 - Trocar tenant/horta de um nó exige novo certificado.
 - Se a CRL ficar indisponível o broker recusa conexões novas (falha fechada).
