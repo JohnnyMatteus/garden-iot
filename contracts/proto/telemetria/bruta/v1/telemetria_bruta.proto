@@ -1,0 +1,34 @@
+syntax = "proto3";
+
+package telemetria.bruta.v1;
+
+import "google/protobuf/timestamp.proto";
+
+option go_package = "github.com/JohnnyMatteus/garden-iot/contracts/gen/go/telemetria/bruta/v1;brutav1";
+
+// TelemetriaBruta é um lote de leituras exatamente como o nó publicou no MQTT,
+// acrescido de metadados de identidade e de transporte. Tópico Kafka:
+// telemetria.bruta.v1, chave = node_id. A conversão para grandezas de domínio
+// acontece depois, no DevicePayloadTranslator escolhido por fw_version.
+message TelemetriaBruta {
+  // Tenant dono do nó (segmento do tópico MQTT e identidade do certificado).
+  string tenant_id = 1;
+  string garden_id = 2;
+  string node_id = 3;
+
+  // Sequência monotônica por nó; com node_id forma a chave de deduplicação.
+  uint64 sequence = 4;
+
+  // Versão do firmware que produziu o payload; define o tradutor a usar.
+  string fw_version = 5;
+
+  // Instante da leitura medido no nó (SNTP, UTC). Pode ser antigo quando o
+  // nó reenvia o buffer offline.
+  google.protobuf.Timestamp read_at = 6;
+
+  // Instante em que a bridge recebeu o lote do broker.
+  google.protobuf.Timestamp received_at = 7;
+
+  // Corpo do lote como publicado pelo nó, sem interpretação.
+  bytes payload = 8;
+}
