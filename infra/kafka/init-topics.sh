@@ -5,8 +5,9 @@ set -eu
 BOOTSTRAP="${KAFKA_BOOTSTRAP:?}"
 KT=/opt/kafka/bin/kafka-topics.sh
 
-# nome:retenção em ms
-for entry in "telemetria.bruta.v1:604800000"; do
+# nome:retenção em ms (um argumento por tópico)
+set -- "telemetria.bruta.v1:604800000"
+for entry in "$@"; do
   name="${entry%%:*}"
   retention="${entry##*:}"
   "$KT" --bootstrap-server "$BOOTSTRAP" --create --if-not-exists \

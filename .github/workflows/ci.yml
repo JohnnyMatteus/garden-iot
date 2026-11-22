@@ -38,6 +38,7 @@ jobs:
             firmware:
               - 'firmware/**'
               - 'contracts/mqtt/**'
+              - '.github/workflows/ci.yml'
             bridge:
               - 'services/bridge/**'
               - 'contracts/**'
@@ -82,8 +83,21 @@ jobs:
       - name: buf lint
         run: buf lint
         working-directory: contracts
-      - name: buf breaking (contra a main)
+      # Sem linha de base não há o que comparar: só pula quando a main ainda não tem o módulo
+      # (contracts/buf.yaml). Assim que a main o tiver, o check passa a ser obrigatório.
+      - name: Detecta linha de base do contrato na main
+        id: baseline
         if: github.ref != 'refs/heads/main'
+        run: |
+          git rev-parse --verify --quiet origin/main >/dev/null || { echo "origin/main ausente no checkout"; exit 1; }
+          if git cat-file -e origin/main:contracts/buf.yaml 2>/dev/null; then
+            echo "present=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "present=false" >> "$GITHUB_OUTPUT"
+            echo "::notice::A main ainda não tem contracts/buf.yaml; buf breaking não tem linha de base e foi pulado."
+          fi
+      - name: buf breaking (contra a main)
+        if: github.ref != 'refs/heads/main' && steps.baseline.outputs.present == 'true'
         run: buf breaking --against '../.git#branch=origin/main,subdir=contracts'
         working-directory: contracts
       - uses: actions/setup-go@v5
@@ -106,23 +120,64 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Testes C no host
-        run: |
-          cmake -S firmware/test/host -B build/fw-host
-          cmake --build build/fw-host
-          ctest --test-dir build/fw-host --output-on-failure
+      - name: Testes de payload, fila offline e mediana (host)
+        run: make -C firmware test
 
   firmware:
     needs: changes
     if: needs.changes.outputs.firmware == 'true'
     runs-on: ubuntu-latest
-    container: espressif/idf:v5.3.2
+    container: espressif/idf:v5.4.1
     steps:
       - uses: actions/checkout@v4
-      - name: Build do firmware (ESP-IDF fixado)
+      - name: Build do firmware (ESP-IDF fixado, sdkconfig do Wokwi)
+        working-directory: firmware
         run: |
           . $IDF_PATH/export.sh
-          cd firmware && idf.py build
+          idf.py -D "SDKCONFIG_DEFAULTS=sdkconfig.defaults;sdkconfig.defaults.wokwi" set-target esp32 build
+      - uses: actions/upload-artifact@v4
+        with:
+          name: firmware-build
+          path: |
+            firmware/build/flasher_args.json
+            firmware/build/garden-node.elf
+            firmware/build/garden-node.bin
+            firmware/wokwi.toml
+            firmware/build/bootloader/bootloader.bin
+            firmware/build/partition_table/partition-table.bin
+          retention-days: 7
+
+  firmware-wokwi:
+    needs: [changes, firmware-host, firmware]
+    if: needs.changes.outputs.firmware == 'true'
+    runs-on: ubuntu-latest
+    env:
+      WOKWI_CLI_TOKEN: ${{ secrets.WOKWI_CLI_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          name: firmware-build
+          path: firmware
+      - name: Wokwi indisponível sem token
+        if: env.WOKWI_CLI_TOKEN == ''
+        run: echo "::warning::Segredo WOKWI_CLI_TOKEN não configurado; simulação pulada (PR de fork ou pendência do autor)."
+      - name: Simula e espera o lote publicado
+        if: env.WOKWI_CLI_TOKEN != ''
+        uses: wokwi/wokwi-ci-action@v1
+        with:
+          path: firmware
+          timeout: 120000
+          expect_text: "lote publicado"
+          fail_text: "Guru Meditation"
+          serial_log_file: wokwi-serial.log
+      - name: Anexa a saída serial
+        if: always() && env.WOKWI_CLI_TOKEN != ''
+        uses: actions/upload-artifact@v4
+        with:
+          name: wokwi-serial
+          path: wokwi-serial.log
+          if-no-files-found: ignore
 
   bridge:
     needs: changes
@@ -136,9 +191,9 @@ jobs:
           cache-dependency-path: services/bridge/go.sum
       - run: go vet ./...
         working-directory: services/bridge
-      - uses: golangci/golangci-lint-action@v6
+      - uses: golangci/golangci-lint-action@v8
         with:
-          version: v1.62
+          version: v2.15.0
           working-directory: services/bridge
       - run: go test ./... -race -count=1
         working-directory: services/bridge
@@ -268,7 +323,7 @@ jobs:
   # Único check obrigatório: jobs pulados por paths-filter contam como sucesso.
   ci-ok:
     if: always()
-    needs: [changes, contracts, firmware-host, firmware, bridge, bridge-integration, e2e, api, web, irrigation, fleet-sim, infra]
+    needs: [changes, contracts, firmware-host, firmware, firmware-wokwi, bridge, bridge-integration, e2e, api, web, irrigation, fleet-sim, infra]
     runs-on: ubuntu-latest
     steps:
       - name: Falha se algum job falhou ou foi cancelado

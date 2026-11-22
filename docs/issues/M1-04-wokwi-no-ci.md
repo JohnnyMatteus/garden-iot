@@ -33,7 +33,7 @@ Funcionalidade: Firmware testado no CI
 
 ## Arquivos prováveis
 
-- `.github/workflows/firmware.yml`
+- `.github/workflows/ci.yml` (jobs `firmware-host`, `firmware` e `firmware-wokwi`)
 - `firmware/wokwi.toml`, `firmware/test/`
 
 ## Notas

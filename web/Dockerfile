@@ -1,4 +1,5 @@
-FROM node:22.11-alpine3.20 AS build
+# Vite 7 exige Node >= 22.12 (ou 20.19).
+FROM node:22.12-alpine3.21 AS build
 WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm ci --no-audit --no-fund
