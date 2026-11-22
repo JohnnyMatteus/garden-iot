@@ -52,7 +52,7 @@ func TestSaveIsIdempotent(t *testing.T) {
 	store := timescale.NewStore(pool)
 	at := time.Unix(1732190000, 0).UTC()
 	rows := []readings.Reading{
-		{Tenant: "t1", Garden: "h1", Node: "n1", Sensor: "soil", Kind: "soil_moisture_vwc", ReadAt: at, Sequence: 1, Value: 50, Unit: "pct", Quality: "ok"},
+		{Tenant: "t1", Garden: "h1", Node: "n1", Sensor: "soil", Kind: "soil_moisture_vwc_pct", ReadAt: at, Sequence: 1, Value: 50, Unit: "pct", Quality: "ok"},
 		{Tenant: "t1", Garden: "h1", Node: "n1", Sensor: "air", Kind: "air_temp", ReadAt: at, Sequence: 1, Value: 23.5, Unit: "celsius", Quality: "ok"},
 	}
 	require.NoError(t, store.Save(context.Background(), rows))

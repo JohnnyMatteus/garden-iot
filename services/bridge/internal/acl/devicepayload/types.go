@@ -6,6 +6,7 @@ import (
 	"time"
 
 	brutav1 "github.com/JohnnyMatteus/garden-iot/contracts/gen/go/telemetria/bruta/v1"
+	"github.com/JohnnyMatteus/garden-iot/contracts/quantity"
 )
 
 // Quality diz o quanto a grandeza convertida merece confiança (design doc, seção 6.3).
@@ -19,12 +20,12 @@ const (
 
 // Grandezas de domínio produzidas pelo tradutor.
 const (
-	SoilMoistureVWC = "soil_moisture_vwc_pct"
-	AirTempC        = "air_temp_c"
-	AirHumidityPct  = "air_humidity_pct"
-	IlluminanceLux  = "illuminance_lux"
-	SolarRadiation  = "solar_radiation_w_m2"
-	WaterLevelOK    = "water_level_ok"
+	SoilMoistureVWC = quantity.SoilMoisture
+	AirTempC        = quantity.AirTemp
+	AirHumidityPct  = quantity.AirHumidity
+	IlluminanceLux  = quantity.Illuminance
+	SolarRadiation  = quantity.SolarRadiation
+	WaterLevelOK    = quantity.WaterLevelOK
 )
 
 // Calibration é a calibração do sensor de solo: leitura ADC no solo seco e saturado.

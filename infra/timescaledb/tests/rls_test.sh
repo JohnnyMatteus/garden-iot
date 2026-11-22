@@ -25,7 +25,7 @@ done
 insert() { # tenant
   run svc_telemetry_writer "$WRITER_PW" "INSERT INTO telemetry.reading
     (tenant_id, garden_id, node_id, sensor_id, kind, read_at, sequence, value, unit)
-    SELECT '$1', 'h1', 'n1', 'soil-1', 'soil_moisture_pct', now() - (g || ' seconds')::interval, 10, 50, '%'
+    SELECT '$1', 'h1', 'n1', 'soil-1', 'soil_moisture_vwc_pct', now() - (g || ' seconds')::interval, 10, 50, '%'
     FROM generate_series(1, 5) g ON CONFLICT DO NOTHING"
 }
 
@@ -36,11 +36,11 @@ expect "5 leituras por tenant gravadas" "$(run "$OWNER" "$OWNER_PW" "SELECT coun
 # Instante fixo para provar o ON CONFLICT:
 run svc_telemetry_writer "$WRITER_PW" "INSERT INTO telemetry.reading
   (tenant_id, garden_id, node_id, sensor_id, kind, read_at, sequence, value, unit)
-  VALUES ('rlstest1','h1','n1','soil-1','soil_moisture_pct','2026-01-01T00:00:00Z',1,1,'%')
+  VALUES ('rlstest1','h1','n1','soil-1','soil_moisture_vwc_pct','2026-01-01T00:00:00Z',1,1,'%')
   ON CONFLICT DO NOTHING" >/dev/null
 run svc_telemetry_writer "$WRITER_PW" "INSERT INTO telemetry.reading
   (tenant_id, garden_id, node_id, sensor_id, kind, read_at, sequence, value, unit)
-  VALUES ('rlstest1','h1','n1','soil-1','soil_moisture_pct','2026-01-01T00:00:00Z',1,1,'%')
+  VALUES ('rlstest1','h1','n1','soil-1','soil_moisture_vwc_pct','2026-01-01T00:00:00Z',1,1,'%')
   ON CONFLICT DO NOTHING" >/dev/null
 expect "reprocessamento não duplica" "$(run "$OWNER" "$OWNER_PW" "SELECT count(*) FROM telemetry.reading WHERE read_at = '2026-01-01T00:00:00Z'")" "1"
 

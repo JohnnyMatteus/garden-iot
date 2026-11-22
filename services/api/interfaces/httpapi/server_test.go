@@ -180,7 +180,7 @@ func TestIrrigationRejectsUnknownFields(t *testing.T) {
 
 func TestSSEStreamsReadingsAndAcceptsQueryToken(t *testing.T) {
 	feed := []application.IngestedReading{{
-		Reading: domain.Reading{NodeID: "n1", SensorID: "soil-1", Kind: "soil_moisture_pct", Value: 41, Unit: "%", Quality: "ok"}, IngestedAt: time.Now()}}
+		Reading: domain.Reading{NodeID: "n1", SensorID: "soil-1", Kind: "soil_moisture_vwc_pct", Value: 41, Unit: "%", Quality: "ok"}, IngestedAt: time.Now()}}
 	srv, j, _ := setup(t, nil, feed)
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
@@ -195,7 +195,7 @@ func TestSSEStreamsReadingsAndAcceptsQueryToken(t *testing.T) {
 	}
 	buf := make([]byte, 512)
 	n, _ := resp.Body.Read(buf)
-	if got := string(buf[:n]); !strings.Contains(got, "event: reading") || !strings.Contains(got, `"kind":"soil_moisture_pct"`) {
+	if got := string(buf[:n]); !strings.Contains(got, "event: reading") || !strings.Contains(got, `"kind":"soil_moisture_vwc_pct"`) {
 		t.Fatalf("evento inesperado: %q", got)
 	}
 }

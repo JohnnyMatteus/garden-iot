@@ -252,7 +252,7 @@
           "format": "time_series",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "SELECT $__timeGroupAlias(read_at, $__interval), node_id AS metric, avg(value) AS value FROM telemetry.reading WHERE $__timeFilter(read_at) AND kind = 'soil_moisture_pct' AND tenant_id IN ($tenant) AND node_id IN ($node) GROUP BY 1, 2 ORDER BY 1"
+          "rawSql": "SELECT $__timeGroupAlias(read_at, $__interval), node_id AS metric, avg(value) AS value FROM telemetry.reading WHERE $__timeFilter(read_at) AND kind = 'soil_moisture_vwc_pct' AND tenant_id IN ($tenant) AND node_id IN ($node) GROUP BY 1, 2 ORDER BY 1"
         }
       ]
     },
@@ -320,7 +320,7 @@
           "format": "time_series",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "SELECT $__timeGroupAlias(read_at, $__interval), node_id AS metric, avg(value) AS value FROM telemetry.reading WHERE $__timeFilter(read_at) AND kind = 'air_rh_pct' AND tenant_id IN ($tenant) AND node_id IN ($node) GROUP BY 1, 2 ORDER BY 1"
+          "rawSql": "SELECT $__timeGroupAlias(read_at, $__interval), node_id AS metric, avg(value) AS value FROM telemetry.reading WHERE $__timeFilter(read_at) AND kind = 'air_humidity_pct' AND tenant_id IN ($tenant) AND node_id IN ($node) GROUP BY 1, 2 ORDER BY 1"
         }
       ]
     },
@@ -354,7 +354,7 @@
           "format": "time_series",
           "rawQuery": true,
           "editorMode": "code",
-          "rawSql": "SELECT $__timeGroupAlias(read_at, $__interval), node_id AS metric, avg(value) AS value FROM telemetry.reading WHERE $__timeFilter(read_at) AND kind = 'light_lux' AND tenant_id IN ($tenant) AND node_id IN ($node) GROUP BY 1, 2 ORDER BY 1"
+          "rawSql": "SELECT $__timeGroupAlias(read_at, $__interval), node_id AS metric, avg(value) AS value FROM telemetry.reading WHERE $__timeFilter(read_at) AND kind = 'illuminance_lux' AND tenant_id IN ($tenant) AND node_id IN ($node) GROUP BY 1, 2 ORDER BY 1"
         }
       ]
     }

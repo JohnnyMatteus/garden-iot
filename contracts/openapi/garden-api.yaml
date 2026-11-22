@@ -129,7 +129,7 @@ paths:
       parameters:
         - { $ref: "#/components/parameters/GardenId" }
         - { $ref: "#/components/parameters/NodeId" }
-        - { name: kind, in: query, schema: { type: string, example: soil_moisture_pct } }
+        - { name: kind, in: query, schema: { type: string, example: soil_moisture_vwc_pct } }
         - { name: from, in: query, schema: { type: string, format: date-time } }
         - { name: to, in: query, schema: { type: string, format: date-time } }
         - { name: limit, in: query, schema: { type: integer, minimum: 1, maximum: 5000, default: 500 } }
@@ -325,7 +325,7 @@ components:
       properties:
         nodeId: { type: string }
         sensorId: { type: string }
-        kind: { type: string, example: soil_moisture_pct }
+        kind: { type: string, example: soil_moisture_vwc_pct }
         readAt: { type: string, format: date-time }
         value: { type: number }
         unit: { type: string }
