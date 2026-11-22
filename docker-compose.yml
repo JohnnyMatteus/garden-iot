@@ -291,6 +291,40 @@ services:
       - /etc/nginx/conf.d
     networks: [garden]
 
+  # Opt-in (profile irrigation): comanda válvulas dos canteiros em infra/irrigation/beds.example.json.
+  irrigation:
+    <<: *hardening
+    build:
+      context: .
+      dockerfile: services/irrigation/Dockerfile
+    profiles: [irrigation]
+    depends_on:
+      emqx:
+        condition: service_healthy
+      timescaledb:
+        condition: service_healthy
+    environment:
+      IRRIGATION_MQTT_URL: tls://emqx:8883
+      IRRIGATION_MQTT_CLIENT_ID: irrigation
+      IRRIGATION_TLS_CA: /pki/ca.pem
+      IRRIGATION_TLS_CERT: /pki/irrigation.pem
+      IRRIGATION_TLS_KEY: /pki/irrigation.key
+      IRRIGATION_DATABASE_URL: postgres://svc_grafana:${TELEMETRY_OPS_PASSWORD:-dev-only-change-me}@timescaledb:5432/${POSTGRES_DB:-garden}
+      IRRIGATION_BEDS_FILE: /config/beds.json
+    volumes:
+      - ${PKI_OUT_DIR:-./infra/pki/out}:/pki:ro
+      - ./infra/irrigation/beds.example.json:/config/beds.json:ro
+    healthcheck:
+      test: ["CMD", "wget", "-qO-", "http://localhost:9104/healthz"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 10s
+    mem_limit: 128m
+    cap_drop: [ALL]
+    read_only: true
+    networks: [garden]
+
   grafana:
     <<: *hardening
     image: grafana/grafana:11.3.0

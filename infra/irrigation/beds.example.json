@@ -1,0 +1,9 @@
+[
+  {
+    "id": "canteiro-1", "tenant": "demo", "garden": "horta-1", "node": "no-1",
+    "crop": "tomato", "stage": "mid", "stage_progress": 0,
+    "area_m2": 2, "method": "drip", "flow_lpm": 4,
+    "lat": -23.55, "lon": -46.63, "elevation_m": 760,
+    "moisture_threshold_pct": 35
+  }
+]

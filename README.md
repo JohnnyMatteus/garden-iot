@@ -19,7 +19,8 @@ Hortas domésticas e pequenos produtores regam no "olhômetro": água demais ou 
 | Firmware do nó sensor, `DevicePayloadTranslator` | branch `feat/firmware` |
 | Bridge MQTT para Kafka, simulador de frota | branch `feat/bridge` |
 | API REST e SSE (`services/api`) | em andamento |
-| Irrigação (ET₀, balanço hídrico, saga), comandos, IA | M2 a M5, ver design doc |
+| Irrigação: ET₀ FAO-56, balanço hídrico, regras de segurança, saga da rega, previsão Open-Meteo | `services/irrigation` (profile `irrigation`) |
+| Streams, Cultivo completo, IA | M2, M3 e M5, ver design doc |
 
 ## Interface
 
@@ -55,7 +56,7 @@ Detalhes e fluxos: [design doc](docs/design-doc.md).
 | `firmware/` | ESP-IDF em C, nó sensor e atuador |
 | `services/bridge` | Go, MQTT para Kafka |
 | `services/api` | Go, REST, SSE e comandos |
-| `services/irrigation` | Go, balanço hídrico e saga (a partir do M2) |
+| `services/irrigation` | Go, balanço hídrico FAO-56, regras de segurança e saga da rega; roteiros dos núcleos em `docs/roteiros/` |
 | `services/assistant` | LangGraph (depois) |
 | `tools/fleet-sim` | simulador de frota em Go |
 | `contracts/` | Protobuf (`buf`), contrato MQTT e OpenAPI |
