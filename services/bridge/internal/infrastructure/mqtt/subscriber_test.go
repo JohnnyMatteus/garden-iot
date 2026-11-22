@@ -3,10 +3,10 @@ package mqtt_test
 import (
 	"context"
 	"errors"
+	"io"
 	"log/slog"
 	"net"
 	"net/url"
-	"os"
 	"sync"
 	"sync/atomic"
 	"testing"
@@ -52,11 +52,18 @@ func startBroker(t *testing.T) string {
 	addr := l.Addr().String()
 	require.NoError(t, l.Close())
 
-	srv := mochi.New(&mochi.Options{InlineClient: false})
+	srv := mochi.New(&mochi.Options{Logger: slog.New(slog.NewTextHandler(io.Discard, nil))})
 	require.NoError(t, srv.AddHook(new(auth.AllowHook), nil))
 	require.NoError(t, srv.AddListener(listeners.NewTCP(listeners.Config{ID: "t", Address: addr})))
 	go func() { _ = srv.Serve() }()
 	t.Cleanup(func() { _ = srv.Close() })
+	require.Eventually(t, func() bool {
+		c, err := net.Dial("tcp", addr)
+		if err == nil {
+			_ = c.Close()
+		}
+		return err == nil
+	}, 3*time.Second, 20*time.Millisecond)
 	return "tcp://" + addr
 }
 
@@ -81,12 +88,16 @@ func runSubscriber(t *testing.T, broker string, h bridgemqtt.Handler) {
 	sub := bridgemqtt.NewSubscriber(bridgemqtt.Config{
 		BrokerURL: broker, ClientID: "bridge-test", ShareGroup: "bridge", TopicFilter: "horta/+/+/+/telemetria",
 		SessionExpiry: time.Minute, RetryBackoff: 20 * time.Millisecond,
-	}, h, slog.New(slog.NewTextHandler(os.Stderr, nil)))
+	}, h, slog.New(slog.NewTextHandler(io.Discard, nil)))
 	ctx, cancel := context.WithCancel(context.Background())
 	done := make(chan struct{})
 	go func() { _ = sub.Run(ctx); close(done) }()
 	t.Cleanup(func() { cancel(); <-done })
-	time.Sleep(500 * time.Millisecond) // aguarda a assinatura ficar ativa
+	select {
+	case <-sub.Ready():
+	case <-time.After(10 * time.Second):
+		t.Fatal("assinatura não ficou ativa")
+	}
 }
 
 func TestReceivesThroughSharedSubscription(t *testing.T) {

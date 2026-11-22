@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/url"
+	"sync"
 	"time"
 
 	"github.com/eclipse/paho.golang/autopaho"
@@ -35,6 +36,8 @@ type Subscriber struct {
 	handler Handler
 	log     *slog.Logger
 	sem     chan struct{}
+	ready   chan struct{}
+	once    sync.Once
 }
 
 func NewSubscriber(cfg Config, h Handler, log *slog.Logger) *Subscriber {
@@ -47,7 +50,7 @@ func NewSubscriber(cfg Config, h Handler, log *slog.Logger) *Subscriber {
 	if cfg.RetryBackoffMax <= 0 {
 		cfg.RetryBackoffMax = 10 * time.Second
 	}
-	return &Subscriber{cfg: cfg, handler: h, log: log, sem: make(chan struct{}, cfg.MaxInFlight)}
+	return &Subscriber{cfg: cfg, handler: h, log: log, sem: make(chan struct{}, cfg.MaxInFlight), ready: make(chan struct{})}
 }
 
 // SharedFilter monta o filtro $share/{grupo}/{filtro}, que reparte as mensagens entre as réplicas.
@@ -150,4 +153,8 @@ func (s *Subscriber) subscribe(ctx context.Context, cm *autopaho.ConnectionManag
 		}
 	}
 	s.log.Info("assinatura ativa", "filtro", filter)
+	s.once.Do(func() { close(s.ready) })
 }
+
+// Ready é fechado quando a primeira assinatura foi aceita pelo broker.
+func (s *Subscriber) Ready() <-chan struct{} { return s.ready }

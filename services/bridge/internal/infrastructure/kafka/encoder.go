@@ -19,12 +19,13 @@ type ProtoEncoder struct {
 	mapper Mapper
 }
 
-// NewProtoEncoder registra (ou reaproveita) o schema do subject e devolve o encoder.
+// NewProtoEncoder usa o schema mais recente do subject, registrado pelo bootstrap do ambiente
+// (infra/kafka/init-schemas.sh) depois da checagem de compatibilidade; a bridge não registra schemas.
 // sample é uma instância da mensagem principal do .proto, usada para ligar o tipo ao id do schema.
-func NewProtoEncoder(ctx context.Context, reg *sr.Client, subject, schema string, sample proto.Message, mapper Mapper) (*ProtoEncoder, error) {
-	ss, err := reg.CreateSchema(ctx, subject, sr.Schema{Schema: schema, Type: sr.TypeProtobuf})
+func NewProtoEncoder(ctx context.Context, reg *sr.Client, subject string, sample proto.Message, mapper Mapper) (*ProtoEncoder, error) {
+	ss, err := reg.SchemaByVersion(ctx, subject, -1)
 	if err != nil {
-		return nil, fmt.Errorf("registro do schema %q: %w", subject, err)
+		return nil, fmt.Errorf("busca do schema %q: %w", subject, err)
 	}
 	var serde sr.Serde
 	serde.Register(ss.ID, sample,

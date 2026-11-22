@@ -3,6 +3,7 @@ module github.com/JohnnyMatteus/garden-iot/services/bridge
 go 1.27.1
 
 require (
+	github.com/JohnnyMatteus/garden-iot/contracts v0.0.0
 	github.com/alicebob/miniredis/v2 v2.40.0
 	github.com/caarlos0/env/v11 v11.4.2
 	github.com/eclipse/paho.golang v0.23.0
@@ -12,6 +13,7 @@ require (
 	github.com/stretchr/testify v1.12.1
 	github.com/twmb/franz-go v1.22.3
 	github.com/twmb/franz-go/pkg/sr v1.8.0
+	golang.org/x/sync v0.22.0
 	google.golang.org/protobuf v1.36.12
 )
 
@@ -34,3 +36,5 @@ require (
 	golang.org/x/sys v0.48.0 // indirect
 	gopkg.in/yaml.v3 v3.0.1 // indirect
 )
+
+replace github.com/JohnnyMatteus/garden-iot/contracts => ../../contracts
